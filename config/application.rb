@@ -49,8 +49,8 @@ module Chatwoot
     # Each path is one Zeitwerk root. Do not glob nested directories: that
     # collapses namespaces (leaf/client.rb must stay Leaf::Client).
     # Require the empty Custom module while this class loads, before
-    # prepend_mod_with. Eager-load paths run too late: a missing Custom
-    # makes const_get_maybe_false return false and the next lookup crashes.
+    # prepend_mod_with. const_defined?(name, false) does not trigger Zeitwerk,
+    # so a missing namespace must be skipped. The lookup returns nil, not false.
     %w[custom/app/controllers custom/app/services].each do |relative_path|
       path = Rails.root.join(relative_path)
       config.eager_load_paths << path if path.exist?

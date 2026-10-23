@@ -4,7 +4,8 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 
 ## Core files this fork touches
 
-- `config/application.rb` — eager-loads `custom/app/controllers` and `custom/app/services` when those directories exist, as separate Zeitwerk roots. While the application class loads, it requires `custom/lib/custom.rb` so `module Custom` exists before `prepend_mod_with`. Eager-load paths alone are too late.
+- `config/application.rb` — eager-loads `custom/app/controllers` and `custom/app/services` when those directories exist, as separate Zeitwerk roots. While the application class loads, it requires `custom/lib/custom.rb` so `module Custom` exists before `prepend_mod_with`.
+- `config/initializers/01_inject_enterprise_edition_module.rb` — `const_get_maybe_false` must return nil, not false, when the receiver is not a module or the constant is missing. `&&` used to return boolean false, and the next lookup called `const_defined?` on that false. `const_defined?(name, false)` does not trigger Zeitwerk, so `Enterprise` can be missing at that moment too.
 - `config/routes.rb` — `GET customer`, `POST payment`, and `POST unblock` on `integrations/leaf`.
 - `config/integration/apps.yml` — `leaf_admin` catalog entry so the generic Integration Hooks page renders the form.
 - `config/locales/en.yml` — English `integration_apps.leaf_admin` copy.
@@ -18,7 +19,7 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 
 ## New code
 
-- `custom/lib/custom.rb` — empty `module Custom`, required at boot. Leaf code stays under `Leaf::`. Without this module, `ChatwootApp.extensions` including `"custom"` makes `const_get_maybe_false` return false, and the next lookup calls `const_defined?` on that false and aborts boot.
+- `custom/lib/custom.rb` — empty `module Custom`, required at boot. Leaf code stays under `Leaf::`. The initializer must still return nil rather than false when a `Custom::` or `Enterprise::` constant is missing.
 - `custom/app/controllers/api/v1/accounts/integrations/leaf_controller.rb`
 - `custom/app/services/leaf/client.rb`
 - `custom/app/services/leaf/contract.rb`
