@@ -176,10 +176,7 @@ const sendPayment = async (invoice, method) => {
       invoice.id,
       method
     );
-    await store.dispatch(
-      'createPendingMessageAndSend',
-      paymentMessage(data)
-    );
+    await store.dispatch('createPendingMessageAndSend', paymentMessage(data));
     selectedInvoiceId.value = '';
   } catch (error) {
     actionError.value = messageFor(error);
@@ -247,10 +244,7 @@ watch(() => props.conversationId, load, { immediate: true });
 
 <template>
   <div class="flex flex-col gap-3 px-4 py-3 text-sm text-n-slate-12">
-    <Spinner
-      v-if="isPending || (!lookup && !loadError)"
-      class="mx-auto"
-    />
+    <Spinner v-if="isPending || (!lookup && !loadError)" class="mx-auto" />
     <p v-else-if="loadError" role="alert" class="m-0 text-n-ruby-11">
       {{ loadError }}
     </p>

@@ -4,7 +4,7 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 
 ## Core files this fork touches
 
-- `config/application.rb` — eager-loads `custom/app/controllers` and `custom/app/services` when those directories exist, as separate Zeitwerk roots.
+- `config/application.rb` — eager-loads `custom/app/controllers` and `custom/app/services` when those directories exist, as separate Zeitwerk roots. While the application class loads, it requires `custom/lib/custom.rb` so `module Custom` exists before `prepend_mod_with`. Eager-load paths alone are too late.
 - `config/routes.rb` — `GET customer`, `POST payment`, and `POST unblock` on `integrations/leaf`.
 - `config/integration/apps.yml` — `leaf_admin` catalog entry so the generic Integration Hooks page renders the form.
 - `config/locales/en.yml` — English `integration_apps.leaf_admin` copy.
@@ -18,6 +18,7 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 
 ## New code
 
+- `custom/lib/custom.rb` — empty `module Custom`, required at boot. Leaf code stays under `Leaf::`. Without this module, `ChatwootApp.extensions` including `"custom"` makes `const_get_maybe_false` return false, and the next lookup calls `const_defined?` on that false and aborts boot.
 - `custom/app/controllers/api/v1/accounts/integrations/leaf_controller.rb`
 - `custom/app/services/leaf/client.rb`
 - `custom/app/services/leaf/contract.rb`
