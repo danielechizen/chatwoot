@@ -432,6 +432,11 @@ Rails.application.routes.draw do
               post :auth
               get :customer
             end
+            resource :leaf, controller: 'leaf', only: [] do
+              get :customer
+              post :payment
+              post :unblock
+            end
             resources :apps, only: [:index, :show]
             resources :hooks, only: [:show, :create, :update, :destroy] do
               member do

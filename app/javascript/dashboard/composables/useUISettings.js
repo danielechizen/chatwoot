@@ -14,6 +14,7 @@ export const DEFAULT_CONVERSATION_SIDEBAR_ITEMS_ORDER = Object.freeze([
   { name: 'linear_issues' },
   { name: 'stripe_customer' },
   { name: 'shopify_orders' },
+  { name: 'leaf_customer' },
 ]);
 
 export const DEFAULT_CONTACT_SIDEBAR_ITEMS_ORDER = Object.freeze([

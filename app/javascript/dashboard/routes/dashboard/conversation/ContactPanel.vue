@@ -25,6 +25,7 @@ import SidebarActionsHeader from 'dashboard/components-next/SidebarActionsHeader
 import LinearIssuesList from 'dashboard/components/widgets/conversation/linear/IssuesList.vue';
 import LinearSetupCTA from 'dashboard/components/widgets/conversation/linear/LinearSetupCTA.vue';
 import StripeCustomer from 'dashboard/components/widgets/conversation/StripeCustomer.vue';
+import LeafCustomerPanel from 'dashboard/components-next/leaf/LeafCustomerPanel.vue';
 
 const props = defineProps({
   conversationId: {
@@ -56,6 +57,13 @@ const shopifyIntegration = useFunctionGetter(
 const isShopifyFeatureEnabled = computed(
   () => shopifyIntegration.value.enabled
 );
+
+const leafIntegration = useFunctionGetter(
+  'integrations/getIntegration',
+  'leaf_admin'
+);
+
+const isLeafAdminEnabled = computed(() => leafIntegration.value.enabled);
 
 const { isCloudFeatureEnabled } = useAccount();
 
@@ -298,6 +306,23 @@ onMounted(() => {
               "
             >
               <ShopifyOrdersList :contact-id="contactId" />
+            </AccordionItem>
+          </div>
+          <div
+            v-else-if="element.name === 'leaf_customer' && isLeafAdminEnabled"
+          >
+            <AccordionItem
+              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.LEAF_CUSTOMER')"
+              :is-open="isContactSidebarItemOpen('is_leaf_customer_open')"
+              compact
+              @toggle="
+                value => toggleSidebarUIState('is_leaf_customer_open', value)
+              "
+            >
+              <LeafCustomerPanel
+                v-if="isContactSidebarItemOpen('is_leaf_customer_open')"
+                :conversation-id="conversationId"
+              />
             </AccordionItem>
           </div>
           <div

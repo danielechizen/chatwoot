@@ -506,6 +506,7 @@
       "MACROS": "Macros",
       "LINEAR_ISSUES": "Linked Linear Issues",
       "SHOPIFY_ORDERS": "Shopify Orders",
+      "LEAF_CUSTOMER": "Leaf Admin",
       "SHARED_FILES": "Attachments"
     },
     "SHARED_FILES": {
@@ -537,6 +538,41 @@
         "FULFILLED": "Fulfilled",
         "PARTIALLY_FULFILLED": "Partially Fulfilled",
         "UNFULFILLED": "Unfulfilled"
+      }
+    },
+    "LEAF": {
+      "NAME": "Name / company",
+      "REGISTRATION": "Registration status",
+      "CONNECTION": "Connection status",
+      "ONU": "ONU/ONT status",
+      "INVOICES": "Open invoices",
+      "NO_INVOICES": "No open invoices",
+      "DUE_ON": "Due {date}",
+      "MISSING_IDENTIFIER": "Add a phone number or CPF/CNPJ to this contact to look up the customer.",
+      "NOT_FOUND": "Customer not found.",
+      "ERROR": "Could not load the customer. Try again.",
+      "UNBLOCK": "Unblock connection",
+      "PIX": "PIX",
+      "BOLETO": "Boleto",
+      "CARD": "Card",
+      "UNBLOCK_NOTE": "Connection unblocked for {name}. Status: {status}.",
+      "UNBLOCK_NOTE_WITH_ONU": "Connection unblocked for {name}. Status: {status}. ONU: {onu}.",
+      "NOTE_ERROR": "The connection was unblocked, but the private note could not be sent.",
+      "ERRORS": {
+        "DISABLED": "Leaf Admin is not enabled for this account.",
+        "UNKNOWN_INVOICE": "Invoice not found.",
+        "UNKNOWN_METHOD": "Unknown payment method.",
+        "NOT_BLOCKED": "The connection is not blocked."
+      },
+      "STATUS": {
+        "ATIVO": "Active",
+        "INATIVO": "Inactive",
+        "SUSPENSO": "Suspended",
+        "ONLINE": "Online",
+        "OFFLINE": "Offline",
+        "LOS": "LOS",
+        "DYING_GASP": "Dying gasp",
+        "UNKNOWN": "Unknown"
       }
     }
   },

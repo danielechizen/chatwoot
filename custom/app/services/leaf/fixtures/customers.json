@@ -1,0 +1,61 @@
+[
+  {
+    "name": "Fibra Alfa LTDA",
+    "cpf_cnpj": "11144477735",
+    "phone_number": "+5511987654321",
+    "registration_status": "ativo",
+    "connection": {
+      "status": "online",
+      "blocked": false,
+      "technology": "ftth",
+      "onu": { "status": "online" }
+    },
+    "open_invoices": [
+      {
+        "id": "tit-2001",
+        "description": "Mensalidade 09/2026",
+        "amount_cents": 14990,
+        "due_on": "2026-09-10"
+      },
+      {
+        "id": "tit-2002",
+        "description": "Mensalidade 10/2026",
+        "amount_cents": 14990,
+        "due_on": "2026-10-10"
+      }
+    ]
+  },
+  {
+    "name": "Provedor Exemplo LTDA",
+    "cpf_cnpj": "52998224725",
+    "phone_number": "+5511912345678",
+    "registration_status": "suspenso",
+    "connection": {
+      "status": "offline",
+      "blocked": true,
+      "technology": "ftth",
+      "onu": { "status": "los" }
+    },
+    "open_invoices": [
+      {
+        "id": "tit-1001",
+        "description": "Mensalidade 10/2026",
+        "amount_cents": 9990,
+        "due_on": "2026-10-10"
+      }
+    ]
+  },
+  {
+    "name": "Rádio Serra ME",
+    "cpf_cnpj": "11222333000181",
+    "phone_number": "+5521988887766",
+    "registration_status": "ativo",
+    "connection": {
+      "status": "online",
+      "blocked": false,
+      "technology": "radio",
+      "onu": null
+    },
+    "open_invoices": []
+  }
+]

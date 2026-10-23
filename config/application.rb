@@ -45,6 +45,13 @@ module Chatwoot
     # rubocop:disable Rails/FilePath
     config.eager_load_paths += Dir["#{Rails.root}/enterprise/app/**"]
     # rubocop:enable Rails/FilePath
+    # custom/ loads when the directory exists, same idea as enterprise/.
+    # Each path is one Zeitwerk root. Do not glob nested directories: that
+    # collapses namespaces (leaf/client.rb must stay Leaf::Client).
+    %w[custom/app/controllers custom/app/services].each do |relative_path|
+      path = Rails.root.join(relative_path)
+      config.eager_load_paths << path if path.exist?
+    end
     # Add enterprise views to the view paths
     config.paths['app/views'].unshift('enterprise/app/views')
 
