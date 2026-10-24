@@ -26,7 +26,7 @@ module Custom::BrandingBoot
   end
 
   def precompiling_assets?
-    defined?(Rake) && Rake.application.top_level_tasks.include?('assets:precompile')
+    File.basename($PROGRAM_NAME) == 'rake' && ARGV.any? { |arg| arg.include?('assets:precompile') }
   end
 
   def prepend_reconcile

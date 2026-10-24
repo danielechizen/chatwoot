@@ -78,7 +78,7 @@ Connection changes for the mock live in `Rails.cache` under the account id and t
 
 The boot initializer calls `apply!`. Saving a config clears `GlobalConfig` through the existing `after_commit`. If the database or the `installation_configs` table is missing (`db:create`), that boot call skips only `ActiveRecord::NoDatabaseError` and a missing-relation `ActiveRecord::StatementInvalid`. Other errors propagate.
 
-Asset precompile skips that boot call when `Rake.application.top_level_tasks` includes `assets:precompile`, and does not query `InstallationConfig`.
+Asset precompile skips that boot call when the process is `rake` and ARGV includes `assets:precompile`, and does not query `InstallationConfig`.
 
 On the community plan, `Internal::ReconcilePlanConfigService#reconcile_premium_config` copies the Chatwoot premium defaults back. The prepended module calls `super`, then `Custom::Branding.apply!`, so the name becomes Leaf Agent again and the logos return to the Leaf paths. The product name is not copied into Vue.
 

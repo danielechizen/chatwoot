@@ -11,7 +11,7 @@ checks = [
   ['app/views/widgets/show.html.erb', 'disableBranding: true'],
   ['public/brand-assets/leaf/logo.svg', '<svg'],
   ['custom/app/services/custom/branding.rb', 'INSTALLATION_NAME'],
-  ['custom/config/initializers/branding.rb', "top_level_tasks.include?('assets:precompile')"]
+  ['custom/config/initializers/branding.rb', "File.basename($PROGRAM_NAME) == 'rake' && ARGV.any? { |arg| arg.include?('assets:precompile') }"]
 ]
 
 failed = false
