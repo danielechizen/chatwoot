@@ -26,7 +26,7 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 - `custom/app/services/custom/branding.rb` — `Custom::Branding.apply!`
 - `custom/config/initializers/branding.rb` — applies branding once per process and prepends the plan reset hook
 - `custom/bin/check_seams.rb` — checks the fork seams after an upstream merge
-- `public/brand-assets/leaf/logo.svg`, `logo_dark.svg`, and `logo_thumbnail.svg` — Leaf marks. The original files in `public/brand-assets/` stay untouched.
+- `public/brand-assets/leaf/logo.svg`, `logo_dark.svg`, and `logo_thumbnail.svg` — Leaf Agent marks. The original files in `public/brand-assets/` stay untouched.
 - `custom/app/controllers/api/v1/accounts/integrations/leaf_controller.rb`
 - `custom/app/services/leaf/client.rb`
 - `custom/app/services/leaf/contract.rb`
@@ -66,19 +66,19 @@ Connection changes for the mock live in `Rails.cache` under the account id and t
 
 ## Branding
 
-`Custom::Branding.apply!` writes these `InstallationConfig` keys when the stored value is blank or still the Chatwoot default. A later manual value that is neither blank nor that default is kept.
+`Custom::Branding.apply!` writes `INSTALLATION_NAME` and `BRAND_NAME` when the stored value is blank, `Chatwoot`, or `Leaf`. The new value is `Leaf Agent`. Any other stored name stays. Logo paths are written only when blank or still the Chatwoot path. A later manual logo path stays.
 
-| Key | Leaf value | Default that gets replaced |
+| Key | Leaf Agent value | Values that get replaced |
 | --- | --- | --- |
-| `INSTALLATION_NAME` | `Leaf` | `Chatwoot` |
-| `BRAND_NAME` | `Leaf` | `Chatwoot` |
-| `LOGO` | `/brand-assets/leaf/logo.svg` | `/brand-assets/logo.svg` |
-| `LOGO_DARK` | `/brand-assets/leaf/logo_dark.svg` | `/brand-assets/logo_dark.svg` |
-| `LOGO_THUMBNAIL` | `/brand-assets/leaf/logo_thumbnail.svg` | `/brand-assets/logo_thumbnail.svg` |
+| `INSTALLATION_NAME` | `Leaf Agent` | blank, `Chatwoot`, or `Leaf` |
+| `BRAND_NAME` | `Leaf Agent` | blank, `Chatwoot`, or `Leaf` |
+| `LOGO` | `/brand-assets/leaf/logo.svg` | blank or `/brand-assets/logo.svg` |
+| `LOGO_DARK` | `/brand-assets/leaf/logo_dark.svg` | blank or `/brand-assets/logo_dark.svg` |
+| `LOGO_THUMBNAIL` | `/brand-assets/leaf/logo_thumbnail.svg` | blank or `/brand-assets/logo_thumbnail.svg` |
 
 The boot initializer calls `apply!`. Saving a config clears `GlobalConfig` through the existing `after_commit`. If the database or the `installation_configs` table is missing (`db:create`), that boot call skips only `ActiveRecord::NoDatabaseError` and a missing-relation `ActiveRecord::StatementInvalid`. Other errors propagate.
 
-On the community plan, `Internal::ReconcilePlanConfigService#reconcile_premium_config` copies the Chatwoot premium defaults back. The prepended module calls `super`, then `Custom::Branding.apply!`, so those five keys become Leaf again. The word Leaf is not copied into Vue.
+On the community plan, `Internal::ReconcilePlanConfigService#reconcile_premium_config` copies the Chatwoot premium defaults back. The prepended module calls `super`, then `Custom::Branding.apply!`, so the name becomes Leaf Agent again and the logos return to the Leaf paths. The product name is not copied into Vue.
 
 The widget seam is the literal `disableBranding: true` in `app/views/widgets/show.html.erb`.
 

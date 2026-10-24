@@ -48,7 +48,7 @@ RSpec.describe Internal::ReconcilePlanConfigService do
         expect(Redis::Alfred.get(Redis::Alfred::CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING)).to be_nil
       end
 
-      it 'updates the premium configs to default and Leaf replaces the Chatwoot brand' do
+      it 'updates the premium configs to default and Leaf Agent replaces the Chatwoot brand' do
         installation_name = InstallationConfig.find_or_initialize_by(name: 'INSTALLATION_NAME')
         installation_name.value = 'custom-name'
         installation_name.save!
@@ -56,7 +56,7 @@ RSpec.describe Internal::ReconcilePlanConfigService do
         logo.value = '/custom-path/logo.svg'
         logo.save!
         service.perform
-        expect(InstallationConfig.find_by(name: 'INSTALLATION_NAME').value).to eq('Leaf')
+        expect(InstallationConfig.find_by(name: 'INSTALLATION_NAME').value).to eq('Leaf Agent')
         expect(InstallationConfig.find_by(name: 'LOGO').value).to eq('/brand-assets/leaf/logo.svg')
       end
     end
