@@ -11,6 +11,21 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     render json: Leaf::Client.build(hook).customer(conversation.contact)
   end
 
+  def invoices
+    conversation = conversation_from_params
+    return if performed?
+
+    hook = enabled_hook
+    return if performed?
+
+    contract_number = contract_number_param
+    return if performed?
+
+    render json: Leaf::Client.build(hook).invoices(conversation.contact, contract_number: contract_number)
+  rescue Leaf::Contract::Error => e
+    render_leaf_error(e)
+  end
+
   def payment
     conversation = conversation_from_params
     return if performed?
@@ -36,6 +51,39 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     render_leaf_error(e)
   end
 
+  def disconnect
+    conversation = conversation_from_params
+    return if performed?
+
+    hook = enabled_hook
+    return if performed?
+
+    render json: Leaf::Client.build(hook).disconnect(conversation.contact)
+  rescue Leaf::Contract::Error => e
+    render_leaf_error(e)
+  end
+
+  def clear_mac
+    conversation = conversation_from_params
+    return if performed?
+
+    hook = enabled_hook
+    return if performed?
+
+    render json: Leaf::Client.build(hook).clear_mac(conversation.contact)
+  rescue Leaf::Contract::Error => e
+    render_leaf_error(e)
+  end
+
+  def test
+    hook = enabled_hook
+    return if performed?
+
+    render json: Leaf::Client.build(hook).test_connection
+  rescue Leaf::Contract::Error => e
+    render_leaf_error(e)
+  end
+
   private
 
   def conversation_from_params
@@ -54,6 +102,15 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     hook = Current.account.hooks.find_by(app_id: APP_ID, status: :enabled)
     render json: { error: 'leaf_admin_not_enabled' }, status: :unprocessable_entity if hook.blank?
     hook
+  end
+
+  def contract_number_param
+    value = params[:contract_number]
+    return if value.nil? || value == ''
+    return value if value.is_a?(String)
+
+    render_could_not_create_error('contract_number must be a string')
+    nil
   end
 
   def payment_arguments

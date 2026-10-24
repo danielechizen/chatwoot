@@ -39,12 +39,23 @@ const props = defineProps({
 });
 
 const {
+  uiSettings,
   updateUISettings,
   isContactSidebarItemOpen,
   conversationSidebarItemsOrder,
   toggleSidebarUIState,
   isOnExpandedLayout,
 } = useUISettings();
+
+const isLeafCustomerOpen = computed(() => {
+  const value = uiSettings.value?.is_leaf_customer_open;
+  if (value === undefined || value === null) return true;
+  return value === true;
+});
+
+const toggleLeafCustomer = () => {
+  updateUISettings({ is_leaf_customer_open: !isLeafCustomerOpen.value });
+};
 
 const dragging = ref(false);
 const conversationSidebarItems = ref([]);
@@ -313,14 +324,12 @@ onMounted(() => {
           >
             <AccordionItem
               :title="$t('CONVERSATION_SIDEBAR.ACCORDION.LEAF_CUSTOMER')"
-              :is-open="isContactSidebarItemOpen('is_leaf_customer_open')"
+              :is-open="isLeafCustomerOpen"
               compact
-              @toggle="
-                value => toggleSidebarUIState('is_leaf_customer_open', value)
-              "
+              @toggle="toggleLeafCustomer"
             >
               <LeafCustomerPanel
-                v-if="isContactSidebarItemOpen('is_leaf_customer_open')"
+                v-if="isLeafCustomerOpen"
                 :conversation-id="conversationId"
               />
             </AccordionItem>

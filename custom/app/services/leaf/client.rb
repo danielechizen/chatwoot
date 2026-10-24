@@ -1,8 +1,8 @@
 class Leaf::Client
   def self.build(hook)
-    # system_url and api_key are ignored until an HTTP adapter replaces the mock.
-    # The controller already requires an enabled leaf_admin hook.
-    new(Leaf::MockAdapter.new(account_id: hook.account_id))
+    new(
+      Leaf::MockAdapter.new(account_id: hook.account_id, settings: hook.settings)
+    )
   end
 
   def initialize(adapter)
@@ -17,6 +17,11 @@ class Leaf::Client
     find_customer(cpf, 'cpf_cnpj') || find_customer(phone, 'phone') || Leaf::Contract.not_found
   end
 
+  def invoices(contact, contract_number: nil)
+    identifier, matched_by = matched_identifier(contact)
+    @adapter.invoices(identifier: identifier, matched_by: matched_by, contract_number: contract_number)
+  end
+
   def payment(contact, invoice_id:, method:)
     identifier, matched_by = matched_identifier(contact)
     @adapter.payment(identifier: identifier, matched_by: matched_by, invoice_id: invoice_id, payment_method: method)
@@ -25,6 +30,20 @@ class Leaf::Client
   def unblock(contact)
     identifier, matched_by = matched_identifier(contact)
     @adapter.unblock(identifier: identifier, matched_by: matched_by)
+  end
+
+  def disconnect(contact)
+    identifier, matched_by = matched_identifier(contact)
+    @adapter.disconnect(identifier: identifier, matched_by: matched_by)
+  end
+
+  def clear_mac(contact)
+    identifier, matched_by = matched_identifier(contact)
+    @adapter.clear_mac(identifier: identifier, matched_by: matched_by)
+  end
+
+  def test_connection
+    @adapter.test_connection
   end
 
   private

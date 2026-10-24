@@ -5,6 +5,8 @@ import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAbortableRequest } from 'dashboard/composables/useAbortableRequest';
 import LeafAPI from 'dashboard/api/leaf';
 import Button from 'dashboard/components-next/button/Button.vue';
+import Icon from 'dashboard/components-next/icon/Icon.vue';
+import Select from 'dashboard/components-next/select/Select.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 
 const props = defineProps({
@@ -14,25 +16,83 @@ const props = defineProps({
   },
 });
 
+const PAYMENT_ACTIONS = [
+  {
+    method: 'pix',
+    icon: 'i-lucide-qr-code',
+    label: 'CONVERSATION_SIDEBAR.LEAF.PIX',
+  },
+  {
+    method: 'boleto',
+    icon: 'i-lucide-barcode',
+    label: 'CONVERSATION_SIDEBAR.LEAF.BOLETO',
+  },
+  {
+    method: 'card',
+    icon: 'i-lucide-credit-card',
+    label: 'CONVERSATION_SIDEBAR.LEAF.CARD',
+  },
+];
+
 const { t } = useI18n();
 const store = useStore();
 const currentUser = useMapGetter('getCurrentUser');
-const { run, isPending } = useAbortableRequest();
+const { run: runCustomer } = useAbortableRequest();
+const {
+  run: runInvoices,
+  abort: abortInvoices,
+  isPending: invoicesPending,
+} = useAbortableRequest();
 
 const lookup = ref(null);
+const invoicesPayload = ref(null);
 const loadError = ref('');
+const invoicesError = ref('');
 const actionError = ref('');
 const selectedInvoiceId = ref('');
+const selectedContract = ref('');
 const payingMethod = ref('');
 const unblocking = ref(false);
+const disconnecting = ref(false);
+const clearingMac = ref(false);
 
 const customer = computed(() => lookup.value?.customer || null);
 const connection = computed(() => customer.value?.connection || null);
+const contracts = computed(() => customer.value?.contracts || []);
+const openInvoices = computed(() => invoicesPayload.value?.open_invoices || []);
+const paymentMethods = computed(
+  () => invoicesPayload.value?.payment_methods || []
+);
+const visiblePaymentActions = computed(() =>
+  PAYMENT_ACTIONS.filter(action => paymentMethods.value.includes(action.method))
+);
+const contractOptions = computed(() => [
+  { value: '', label: t('CONVERSATION_SIDEBAR.LEAF.ALL_CONTRACTS') },
+  ...contracts.value.map(contract => ({
+    value: contract.number,
+    label: contract.label,
+  })),
+]);
 const showOnu = computed(
   () => connection.value?.technology === 'ftth' && !!connection.value?.onu
 );
+const showRx = computed(() => {
+  const rx = connection.value?.onu?.rx_dbm;
+  return rx !== undefined && rx !== null && rx !== '';
+});
+const showOnuError = computed(
+  () =>
+    connection.value?.onu?.status === 'offline' &&
+    !!connection.value?.onu?.error
+);
 const canUnblock = computed(() => connection.value?.blocked === true);
-const busy = computed(() => unblocking.value || payingMethod.value !== '');
+const busy = computed(
+  () =>
+    unblocking.value ||
+    disconnecting.value ||
+    clearingMac.value ||
+    payingMethod.value !== ''
+);
 
 const statusLabel = key => {
   switch (key) {
@@ -46,14 +106,15 @@ const statusLabel = key => {
       return t('CONVERSATION_SIDEBAR.LEAF.STATUS.ONLINE');
     case 'offline':
       return t('CONVERSATION_SIDEBAR.LEAF.STATUS.OFFLINE');
-    case 'los':
-      return t('CONVERSATION_SIDEBAR.LEAF.STATUS.LOS');
-    case 'dying_gasp':
-      return t('CONVERSATION_SIDEBAR.LEAF.STATUS.DYING_GASP');
     default:
       return t('CONVERSATION_SIDEBAR.LEAF.STATUS.UNKNOWN');
   }
 };
+
+const statusIcon = status =>
+  status === 'online'
+    ? 'i-lucide-circle size-4 shrink-0 text-n-teal-11'
+    : 'i-lucide-circle size-4 shrink-0 text-n-ruby-11';
 
 const messageFor = error => {
   const code = error?.response?.data?.error;
@@ -99,6 +160,14 @@ const formatDueOn = value => {
   }).format(date);
 };
 
+const formatRx = value =>
+  t('CONVERSATION_SIDEBAR.LEAF.RX_VALUE', {
+    value: new Intl.NumberFormat(undefined, {
+      maximumFractionDigits: 1,
+      minimumFractionDigits: 1,
+    }).format(value),
+  });
+
 const fileFromBase64 = (base64, filename, mimeType) => {
   const binary = atob(base64);
   const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
@@ -119,12 +188,7 @@ const paymentMessage = data => {
 
   if (data.method === 'pix') {
     const file = fileFromBase64(data.pix.image_base64, 'pix.png', 'image/png');
-    return {
-      ...base,
-      message: data.pix.copy_paste,
-      files: [file],
-      file,
-    };
+    return { ...base, message: data.pix.copy_paste, files: [file], file };
   }
 
   if (data.method === 'boleto') {
@@ -133,30 +197,60 @@ const paymentMessage = data => {
       'boleto.pdf',
       'application/pdf'
     );
-    return {
-      ...base,
-      message: '',
-      files: [file],
-      file,
-    };
+    return { ...base, message: '', files: [file], file };
   }
 
   return { ...base, message: data.card.payment_url };
 };
 
+const fetchInvoices = async () => {
+  invoicesError.value = '';
+  const contractNumber = selectedContract.value || undefined;
+  try {
+    const response = await runInvoices(signal =>
+      LeafAPI.invoices(props.conversationId, contractNumber, signal)
+    );
+    if (response) invoicesPayload.value = response.data;
+  } catch {
+    invoicesError.value = t('CONVERSATION_SIDEBAR.LEAF.INVOICES_ERROR');
+  }
+};
+
 const load = async () => {
   loadError.value = '';
   actionError.value = '';
+  invoicesError.value = '';
   lookup.value = null;
+  invoicesPayload.value = null;
   selectedInvoiceId.value = '';
+  selectedContract.value = '';
+  abortInvoices();
   try {
-    const response = await run(signal =>
+    const response = await runCustomer(signal =>
       LeafAPI.customer(props.conversationId, signal)
     );
-    if (response) lookup.value = response.data;
+    if (!response) return;
+
+    lookup.value = response.data;
+    if (response.data.found) await fetchInvoices();
   } catch (error) {
     loadError.value = messageFor(error);
   }
+};
+
+const refreshPanel = async () => {
+  const response = await runCustomer(signal =>
+    LeafAPI.customer(props.conversationId, signal)
+  );
+  if (response) lookup.value = response.data;
+  if (lookup.value?.found) await fetchInvoices();
+};
+
+const onContractChange = value => {
+  selectedContract.value = value ?? '';
+  selectedInvoiceId.value = '';
+  invoicesPayload.value = null;
+  fetchInvoices();
 };
 
 const toggleInvoice = invoiceId => {
@@ -239,12 +333,42 @@ const unblockConnection = async () => {
   }
 };
 
+const disconnectConnection = async () => {
+  if (busy.value) return;
+
+  actionError.value = '';
+  disconnecting.value = true;
+  try {
+    await LeafAPI.disconnect(props.conversationId);
+    await refreshPanel();
+  } catch (error) {
+    actionError.value = messageFor(error);
+  } finally {
+    disconnecting.value = false;
+  }
+};
+
+const clearMac = async () => {
+  if (busy.value) return;
+
+  actionError.value = '';
+  clearingMac.value = true;
+  try {
+    await LeafAPI.clearMac(props.conversationId);
+    await refreshPanel();
+  } catch (error) {
+    actionError.value = messageFor(error);
+  } finally {
+    clearingMac.value = false;
+  }
+};
+
 watch(() => props.conversationId, load, { immediate: true });
 </script>
 
 <template>
   <div class="flex flex-col gap-3 px-4 py-3 text-sm text-n-slate-12">
-    <Spinner v-if="isPending || (!lookup && !loadError)" class="mx-auto" />
+    <Spinner v-if="!lookup && !loadError" class="mx-auto" />
     <p v-else-if="loadError" role="alert" class="m-0 text-n-ruby-11">
       {{ loadError }}
     </p>
@@ -258,44 +382,127 @@ watch(() => props.conversationId, load, { immediate: true });
       {{ $t('CONVERSATION_SIDEBAR.LEAF.NOT_FOUND') }}
     </p>
     <template v-else-if="customer">
-      <dl class="flex flex-col gap-2 m-0">
-        <div class="flex flex-col gap-0.5">
-          <dt class="text-xs text-n-slate-11">
-            {{ $t('CONVERSATION_SIDEBAR.LEAF.NAME') }}
-          </dt>
-          <dd class="m-0">{{ customer.name }}</dd>
+      <div class="flex items-center gap-2">
+        <Icon icon="i-lucide-building-2 size-4 shrink-0 text-n-slate-11" />
+        <span class="min-w-0 break-words">{{ customer.name }}</span>
+      </div>
+      <section class="flex flex-col gap-2">
+        <h4 class="m-0 text-xs font-medium text-n-slate-11">
+          {{ $t('CONVERSATION_SIDEBAR.LEAF.CONNECTION') }}
+        </h4>
+        <div v-if="connection.username" class="flex items-center gap-2">
+          <Icon icon="i-lucide-user size-4 shrink-0 text-n-slate-11" />
+          <span class="text-n-slate-11">
+            {{ $t('CONVERSATION_SIDEBAR.LEAF.USERNAME') }}
+          </span>
+          <span class="min-w-0 truncate">{{ connection.username }}</span>
         </div>
-        <div class="flex flex-col gap-0.5">
-          <dt class="text-xs text-n-slate-11">
-            {{ $t('CONVERSATION_SIDEBAR.LEAF.REGISTRATION') }}
-          </dt>
-          <dd class="m-0">{{ statusLabel(customer.registration_status) }}</dd>
+        <div class="flex items-center gap-2">
+          <Icon :icon="statusIcon(connection.status)" />
+          <span>{{ statusLabel(connection.status) }}</span>
         </div>
-        <div class="flex flex-col gap-0.5">
-          <dt class="text-xs text-n-slate-11">
-            {{ $t('CONVERSATION_SIDEBAR.LEAF.CONNECTION') }}
-          </dt>
-          <dd class="m-0">{{ statusLabel(connection.status) }}</dd>
+        <div v-if="connection.last_log" class="flex items-start gap-2">
+          <Icon icon="i-lucide-scroll-text size-4 shrink-0 text-n-slate-11" />
+          <span class="min-w-0 break-words">{{ connection.last_log }}</span>
         </div>
-        <div v-if="showOnu" class="flex flex-col gap-0.5">
-          <dt class="text-xs text-n-slate-11">
-            {{ $t('CONVERSATION_SIDEBAR.LEAF.ONU') }}
-          </dt>
-          <dd class="m-0">{{ statusLabel(connection.onu.status) }}</dd>
+      </section>
+      <section v-if="showOnu" class="flex flex-col gap-2">
+        <h4 class="m-0 text-xs font-medium text-n-slate-11">
+          {{ $t('CONVERSATION_SIDEBAR.LEAF.ONU') }}
+        </h4>
+        <div class="flex items-center gap-2">
+          <Icon icon="i-lucide-barcode size-4 shrink-0 text-n-slate-11" />
+          <span class="text-n-slate-11">
+            {{ $t('CONVERSATION_SIDEBAR.LEAF.SERIAL') }}
+          </span>
+          <span class="min-w-0 truncate">{{ connection.onu.serial }}</span>
         </div>
-      </dl>
+        <div class="flex items-center gap-2">
+          <Icon :icon="statusIcon(connection.onu.status)" />
+          <span>{{ statusLabel(connection.onu.status) }}</span>
+        </div>
+        <div v-if="showRx" class="flex items-center gap-2">
+          <Icon icon="i-lucide-signal size-4 shrink-0 text-n-slate-11" />
+          <span class="text-n-slate-11">
+            {{ $t('CONVERSATION_SIDEBAR.LEAF.RX') }}
+          </span>
+          <span>{{ formatRx(connection.onu.rx_dbm) }}</span>
+        </div>
+        <div v-if="showOnuError" class="flex items-start gap-2">
+          <Icon icon="i-lucide-triangle-alert size-4 shrink-0 text-n-ruby-11" />
+          <span class="min-w-0 break-words">{{ connection.onu.error }}</span>
+        </div>
+      </section>
+      <div class="flex items-center gap-2">
+        <Icon icon="i-lucide-badge-check size-4 shrink-0 text-n-slate-11" />
+        <span class="text-n-slate-11">
+          {{ $t('CONVERSATION_SIDEBAR.LEAF.REGISTRATION') }}
+        </span>
+        <span>{{ statusLabel(customer.registration_status) }}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <Button
+          v-if="canUnblock"
+          v-tooltip.top-end="$t('CONVERSATION_SIDEBAR.LEAF.UNBLOCK')"
+          icon="i-lucide-lock-keyhole-open"
+          slate
+          faded
+          sm
+          :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.UNBLOCK')"
+          :is-loading="unblocking"
+          :disabled="busy"
+          @click="unblockConnection"
+        />
+        <Button
+          v-tooltip.top-end="$t('CONVERSATION_SIDEBAR.LEAF.DISCONNECT')"
+          icon="i-lucide-unplug"
+          slate
+          faded
+          sm
+          :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.DISCONNECT')"
+          :is-loading="disconnecting"
+          :disabled="busy"
+          @click="disconnectConnection"
+        />
+        <Button
+          v-tooltip.top-end="$t('CONVERSATION_SIDEBAR.LEAF.CLEAR_MAC')"
+          icon="i-lucide-eraser"
+          slate
+          faded
+          sm
+          :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.CLEAR_MAC')"
+          :is-loading="clearingMac"
+          :disabled="busy"
+          @click="clearMac"
+        />
+      </div>
       <section class="flex flex-col gap-2 pt-3 border-t border-n-weak">
         <h4 class="m-0 text-xs font-medium text-n-slate-11">
           {{ $t('CONVERSATION_SIDEBAR.LEAF.INVOICES') }}
         </h4>
+        <Select
+          v-if="contracts.length"
+          :model-value="selectedContract"
+          :options="contractOptions"
+          :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.CONTRACT')"
+          @update:model-value="onContractChange"
+        />
+        <Spinner
+          v-if="invoicesPending && !openInvoices.length"
+          class="mx-auto"
+        />
         <p
-          v-if="!customer.open_invoices.length"
-          class="m-0 text-xs text-n-slate-11"
+          v-else-if="invoicesError"
+          role="alert"
+          class="m-0 text-xs text-n-ruby-11"
         >
+          {{ invoicesError }}
+        </p>
+        <p v-else-if="!openInvoices.length" class="m-0 text-xs text-n-slate-11">
           {{ $t('CONVERSATION_SIDEBAR.LEAF.NO_INVOICES') }}
         </p>
         <div
-          v-for="invoice in customer.open_invoices"
+          v-for="invoice in openInvoices"
           :key="invoice.id"
           class="flex flex-col gap-2 border-b border-n-weak last:border-b-0"
         >
@@ -325,46 +532,20 @@ watch(() => props.conversationId, load, { immediate: true });
             class="flex flex-wrap gap-2"
           >
             <Button
+              v-for="action in visiblePaymentActions"
+              :key="action.method"
               faded
               slate
               sm
-              :label="$t('CONVERSATION_SIDEBAR.LEAF.PIX')"
-              :is-loading="payingMethod === 'pix'"
+              :icon="action.icon"
+              :label="$t(action.label)"
+              :is-loading="payingMethod === action.method"
               :disabled="busy"
-              @click="sendPayment(invoice, 'pix')"
-            />
-            <Button
-              faded
-              slate
-              sm
-              :label="$t('CONVERSATION_SIDEBAR.LEAF.BOLETO')"
-              :is-loading="payingMethod === 'boleto'"
-              :disabled="busy"
-              @click="sendPayment(invoice, 'boleto')"
-            />
-            <Button
-              faded
-              slate
-              sm
-              :label="$t('CONVERSATION_SIDEBAR.LEAF.CARD')"
-              :is-loading="payingMethod === 'card'"
-              :disabled="busy"
-              @click="sendPayment(invoice, 'card')"
+              @click="sendPayment(invoice, action.method)"
             />
           </div>
         </div>
       </section>
-      <Button
-        v-if="canUnblock"
-        faded
-        ruby
-        sm
-        class="w-full"
-        :label="$t('CONVERSATION_SIDEBAR.LEAF.UNBLOCK')"
-        :is-loading="unblocking"
-        :disabled="busy"
-        @click="unblockConnection"
-      />
       <p v-if="actionError" role="alert" class="m-0 text-n-ruby-11">
         {{ actionError }}
       </p>

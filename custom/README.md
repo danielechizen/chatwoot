@@ -6,12 +6,14 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 
 - `config/application.rb` — eager-loads `custom/app/controllers` and `custom/app/services` when those directories exist, as separate Zeitwerk roots. While the application class loads, it requires `custom/lib/custom.rb` so `module Custom` exists before `prepend_mod_with`.
 - `config/initializers/01_inject_enterprise_edition_module.rb` — `const_get_maybe_false` must return nil, not false, when the receiver is not a module or the constant is missing. `&&` used to return boolean false, and the next lookup called `const_defined?` on that false. `const_defined?(name, false)` does not trigger Zeitwerk, so `Enterprise` can be missing at that moment too.
-- `config/routes.rb` — `GET customer`, `POST payment`, and `POST unblock` on `integrations/leaf`.
-- `config/integration/apps.yml` — `leaf_admin` catalog entry so the generic Integration Hooks page renders the form.
+- `config/routes.rb` — Leaf routes under `integrations/leaf`: `GET customer`, `GET invoices`, `POST payment`, `POST unblock`, `POST disconnect`, `POST clear_mac`, `POST test`.
+- `config/integration/apps.yml` — `leaf_admin` catalog entry. `visible_properties` stays `system_url` only, so the API key is never returned to the browser.
+- `app/controllers/api/v1/accounts/integrations/hooks_controller.rb` — on `PATCH` for `leaf_admin`, a blank `api_key` keeps the stored key. A new key replaces it.
 - `config/locales/en.yml` — English `integration_apps.leaf_admin` copy.
 - `config/locales/pt_BR.yml` — Portuguese `integration_apps.leaf_admin` copy.
-- `app/javascript/dashboard/composables/useUISettings.js` — adds `leaf_customer` to the default conversation sidebar order.
-- `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue` — one accordion, shown when the `leaf_admin` integration is enabled.
+- `app/javascript/dashboard/composables/useUISettings.js` — `leaf_customer` is the first default sidebar item. A saved order that omits it gets the item inserted at the front. The contact sidebar is open when `is_contact_sidebar_open` is unset, and a saved `false` stays closed.
+- `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue` — one accordion, shown when the `leaf_admin` integration is enabled. The accordion is open when `is_leaf_customer_open` is unset.
+- `app/javascript/dashboard/routes/dashboard/settings/integrations/LeafHookSettings.vue` — edits the saved system URL and API key, and tests the connection.
 - `app/javascript/dashboard/i18n/locale/en/conversation.json` — English sidebar strings.
 - `app/javascript/dashboard/i18n/locale/pt_BR/conversation.json` — Portuguese sidebar strings.
 - `public/dashboard/images/integrations/leaf_admin.png` — light logo.
@@ -28,7 +30,7 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 - `app/javascript/dashboard/api/leaf.js`
 - `app/javascript/dashboard/components-next/leaf/LeafCustomerPanel.vue`
 
-`Leaf::Client.build` returns `Leaf::MockAdapter` for now. It ignores `system_url` and `api_key`. The controller requires an enabled `Integrations::Hook` with `app_id` `leaf_admin`.
+`Leaf::Client.build` returns `Leaf::MockAdapter`. Customer, invoice, payment, and connection actions do not call the external system. `POST test` reads the enabled hook and succeeds only when `system_url` and `api_key` are both present. The controller requires an enabled `Integrations::Hook` with `app_id` `leaf_admin`.
 
 ## Contact API contract
 
@@ -41,22 +43,26 @@ There is no new contact column, no Contact model change, and no contact strong-p
 
 ## Adapters
 
-Public client methods return `Leaf::Contract` hashes only:
+Public client methods return `Leaf::Contract` hashes only. Omit a key when the adapter has no value.
 
-- customer lookup: `found` plus `customer`, or `found: false` with `reason` `missing_identifier` or `not_found`
-- payment: one of `pix`, `boleto`, or `card`
-- unblock: `unblocked`, `name`, and `connection`
+Customer lookup (`GET customer`) is `found` plus `customer`, or `found: false` with `reason` `missing_identifier` or `not_found`. `customer` has `name`, `registration_status`, and `connection`. It does not include open invoices. `connection` may include `username` and `last_log`. `onu` is present only for `ftth` when the adapter has one: `serial`, `status` (`online` or `offline`), optional `rx_dbm`, and optional `error` when offline. `contracts` is optional. Each contract has `number`, `label`, and `payment_methods` (`pix`, `boleto`, `card`).
+
+Invoices (`GET invoices?conversation_id=&contract_number=`): `contract_number` is optional. The response has `payment_methods`, `open_invoices` (at most 5, `due_on` ascending, the most overdue), and `contract_number` when the request named one or every returned invoice belongs to the same contract. With no `contract_number`, invoices are taken across contracts and `payment_methods` is the intersection of the methods for the contracts in that result. `POST payment` returns 422 `unknown_method` when the method is not available for that invoice's contract.
+
+Unblock, disconnect, and clear MAC return a small contract object and update the mock cache so the next customer fetch shows the change. Disconnect sets connection `status` to `offline` and `last_log` to `Desconectado pelo atendente`. Clear MAC succeeds even though the customer payload does not display a MAC. Unblock still returns `unblocked`, `name`, and `connection`.
+
+`POST test` returns `{ "ok": true }` or 422 `invalid_credentials`.
 
 Do not add adapter-only keys to those payloads. Map external responses inside the adapter, then build the hash with `Leaf::Contract`.
 
-Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`, `unknown_invoice`, `missing_identifier`, `not_found`, `connection_not_blocked`. Customer lookup stays HTTP 200 when the customer is missing.
+Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`, `unknown_invoice`, `missing_identifier`, `not_found`, `connection_not_blocked`, `invalid_credentials`. A `contract_number` that is not a string is also 422. Customer lookup stays HTTP 200 when the customer is missing.
 
-Unblock state for the mock lives in `Rails.cache` under the account id and the matched identifier. No migration.
+Connection changes for the mock live in `Rails.cache` under the account id and the matched identifier. No migration.
 
 ## Mock fixtures
 
 | Customer | CPF/CNPJ | Phone | Profile |
 | --- | --- | --- | --- |
-| Fibra Alfa LTDA | `11144477735` | `+5511987654321` | FTTH online, ONU online, ativo, two invoices |
-| Provedor Exemplo LTDA | `52998224725` | `+5511912345678` | FTTH offline, blocked, ONU los, suspenso, invoice `tit-1001` |
-| Rádio Serra ME | `11222333000181` | `+5521988887766` | radio, ONU null, ativo, no invoices |
+| Fibra Alfa LTDA | `11144477735` | `+5511987654321` | FTTH online, last log success, ONU online with serial and RX, ativo, contracts `1001` (PIX and boleto, `tit-2001`, `tit-2002`) and `1002` (card, `tit-2003`) |
+| Provedor Exemplo LTDA | `52998224725` | `+5511912345678` | FTTH offline, blocked, password last log, ONU offline with serial and error text, suspenso, contract `2001`, overdue invoices including `tit-1001` |
+| Rádio Serra ME | `11222333000181` | `+5521988887766` | radio, no last log, no ONU, no contracts, no invoices, ativo |

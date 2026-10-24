@@ -6,6 +6,7 @@ import { useIntegrationHook } from 'dashboard/composables/useIntegrationHook';
 import NewHook from './NewHook.vue';
 import SingleIntegrationHooks from './SingleIntegrationHooks.vue';
 import MultipleIntegrationHooks from './MultipleIntegrationHooks.vue';
+import LeafHookSettings from './LeafHookSettings.vue';
 import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 
@@ -14,6 +15,7 @@ export default {
     NewHook,
     SingleIntegrationHooks,
     MultipleIntegrationHooks,
+    LeafHookSettings,
     SettingsLayout,
     BaseSettingsHeader,
   },
@@ -141,6 +143,10 @@ export default {
             :integration-id="integrationId"
             @add="openAddHookModal"
             @delete="openDeletePopup"
+          />
+          <LeafHookSettings
+            v-if="integrationId === 'leaf_admin' && integration.hooks.length"
+            :hook="integration.hooks[0]"
           />
         </div>
       </div>

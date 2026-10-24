@@ -13,6 +13,13 @@ class LeafAPI extends ApiClient {
     });
   }
 
+  invoices(conversationId, contractNumber, signal) {
+    const params = { conversation_id: String(conversationId) };
+    if (contractNumber) params.contract_number = contractNumber;
+
+    return axios.get(`${this.url}/invoices`, { params, signal });
+  }
+
   payment(conversationId, invoiceId, method) {
     return axios.post(`${this.url}/payment`, {
       conversation_id: String(conversationId),
@@ -25,6 +32,22 @@ class LeafAPI extends ApiClient {
     return axios.post(`${this.url}/unblock`, {
       conversation_id: String(conversationId),
     });
+  }
+
+  disconnect(conversationId) {
+    return axios.post(`${this.url}/disconnect`, {
+      conversation_id: String(conversationId),
+    });
+  }
+
+  clearMac(conversationId) {
+    return axios.post(`${this.url}/clear_mac`, {
+      conversation_id: String(conversationId),
+    });
+  }
+
+  test() {
+    return axios.post(`${this.url}/test`);
   }
 }
 
