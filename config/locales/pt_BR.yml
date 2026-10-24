@@ -477,6 +477,10 @@ pt_BR:
       name: 'LeadSquared'
       short_description: 'Sincronize seus contatos e conversas com LeadSquared CRM.'
       description: 'Sincronize seus contatos e conversas com LeadSquared CRM. Essa integração cria automaticamente leads em LeadSquared quando novos contatos são adicionados, e registra a atividade de conversação para fornecer à sua equipe de vendas um contexto completo.'
+    leaf_admin:
+      name: 'Leaf Admin'
+      short_description: 'Veja a conexão, a ONU e os títulos em aberto na conversa.'
+      description: 'Conecte o Leaf Admin para localizar o contato pelo CPF/CNPJ ou telefone e mostrar o cadastro, a conexão, a ONU e os títulos em aberto na barra lateral da conversa. O agente pode enviar PIX, boleto ou cartão, desconectar, limpar o MAC e desbloquear a conexão.'
   captain:
     copilot_message_required: A mensagem é obrigatória
     copilot_error: 'Conecte com um assistente a esta caixa de entrada para usar Copilot'

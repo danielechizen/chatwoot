@@ -506,6 +506,7 @@
       "MACROS": "Macros",
       "LINEAR_ISSUES": "Problemas do Linear vinculados",
       "SHOPIFY_ORDERS": "Pedidos do Shopify",
+      "LEAF_CUSTOMER": "Leaf Admin",
       "SHARED_FILES": "Anexos"
     },
     "SHARED_FILES": {
@@ -537,6 +538,50 @@
         "FULFILLED": "Concluído",
         "PARTIALLY_FULFILLED": "Parcialmente Concluído",
         "UNFULFILLED": "Não concluído"
+      }
+    },
+    "LEAF": {
+      "NAME": "Nome / razão social",
+      "USERNAME": "Usuário",
+      "REGISTRATION": "Situação do cadastro",
+      "CONNECTION": "Conexão",
+      "ONU": "ONU",
+      "SERIAL": "Serial",
+      "RX": "Sinal RX",
+      "RX_VALUE": "{value} dBm",
+      "CONTRACT": "Contrato",
+      "ALL_CONTRACTS": "Todos os contratos",
+      "INVOICES": "Títulos em aberto",
+      "NO_INVOICES": "Nenhum título em aberto",
+      "DUE_ON": "Vencimento {date}",
+      "MISSING_IDENTIFIER": "Informe o telefone ou o CPF/CNPJ do contato para consultar o cliente.",
+      "NOT_FOUND": "Cliente não encontrado.",
+      "ERROR": "Não foi possível carregar o cliente. Tente novamente.",
+      "INVOICES_ERROR": "Não foi possível carregar os títulos em aberto.",
+      "UNBLOCK": "Desbloquear conexão",
+      "DISCONNECT": "Desconectar",
+      "CLEAR_MAC": "Limpar MAC",
+      "PIX": "PIX",
+      "BOLETO": "Boleto",
+      "CARD": "Cartão",
+      "UNBLOCK_NOTE": "Conexão desbloqueada para {name}. Situação: {status}.",
+      "UNBLOCK_NOTE_WITH_ONU": "Conexão desbloqueada para {name}. Situação: {status}. ONU: {onu}.",
+      "NOTE_ERROR": "A conexão foi desbloqueada, mas a nota privada não pôde ser enviada.",
+      "ERRORS": {
+        "DISABLED": "O Leaf Admin não está habilitado nesta conta.",
+        "UNKNOWN_INVOICE": "Título não encontrado.",
+        "UNKNOWN_METHOD": "Forma de pagamento desconhecida.",
+        "NOT_BLOCKED": "A conexão não está bloqueada."
+      },
+      "STATUS": {
+        "ATIVO": "Ativo",
+        "INATIVO": "Inativo",
+        "SUSPENSO": "Suspenso",
+        "ONLINE": "Online",
+        "OFFLINE": "Offline",
+        "LOS": "LOS",
+        "DYING_GASP": "Dying gasp",
+        "UNKNOWN": "Desconhecido"
       }
     }
   },

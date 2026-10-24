@@ -9,7 +9,7 @@ class Api::V1::Accounts::Integrations::HooksController < Api::V1::Accounts::Inte
   end
 
   def update
-    @hook.update!(permitted_params.slice(:status, :settings))
+    @hook.update!(hook_update_params)
   end
 
   def process_event
@@ -43,6 +43,20 @@ class Api::V1::Accounts::Integrations::HooksController < Api::V1::Accounts::Inte
 
   def fetch_hook
     @hook = Current.account.hooks.find(params[:id])
+  end
+
+  def hook_update_params
+    attributes = permitted_params.slice(:status, :settings).to_h
+    return attributes unless leaf_admin_settings?(attributes)
+
+    settings = attributes['settings'].to_h.stringify_keys
+    stored = @hook.settings || {}
+    settings['api_key'] = stored['api_key'] if settings['api_key'].blank?
+    attributes.merge('settings' => settings)
+  end
+
+  def leaf_admin_settings?(attributes)
+    @hook.app_id == 'leaf_admin' && attributes['settings'].present?
   end
 
   def permitted_params
