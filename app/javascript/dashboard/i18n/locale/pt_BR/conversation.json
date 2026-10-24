@@ -542,11 +542,8 @@
     },
     "LEAF": {
       "NAME": "Nome / razão social",
-      "USERNAME": "Usuário",
-      "REGISTRATION": "Situação do cadastro",
       "CONNECTION": "Conexão",
       "ONU": "ONU",
-      "SERIAL": "Serial",
       "RX": "Sinal RX",
       "RX_VALUE": "{value} dBm",
       "CONTRACT": "Contrato",

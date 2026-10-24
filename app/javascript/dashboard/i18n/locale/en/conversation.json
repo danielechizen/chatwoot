@@ -542,11 +542,8 @@
     },
     "LEAF": {
       "NAME": "Name / company",
-      "USERNAME": "Username",
-      "REGISTRATION": "Registration status",
       "CONNECTION": "Connection",
       "ONU": "ONU",
-      "SERIAL": "Serial",
       "RX": "RX signal",
       "RX_VALUE": "{value} dBm",
       "CONTRACT": "Contract",

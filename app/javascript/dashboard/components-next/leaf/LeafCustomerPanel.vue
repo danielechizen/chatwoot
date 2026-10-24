@@ -6,6 +6,7 @@ import { useAbortableRequest } from 'dashboard/composables/useAbortableRequest';
 import LeafAPI from 'dashboard/api/leaf';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
+import Label from 'dashboard/components-next/label/Label.vue';
 import Select from 'dashboard/components-next/select/Select.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 
@@ -111,10 +112,29 @@ const statusLabel = key => {
   }
 };
 
-const statusIcon = status =>
-  status === 'online'
-    ? 'i-lucide-circle size-4 shrink-0 text-n-teal-11'
-    : 'i-lucide-circle size-4 shrink-0 text-n-ruby-11';
+const STATUS_COLORS = {
+  online: 'teal',
+  ativo: 'teal',
+  offline: 'ruby',
+  inativo: 'ruby',
+  suspenso: 'amber',
+};
+
+const statusColor = status => STATUS_COLORS[status] || 'slate';
+
+const connectionStatusColor = computed(() => {
+  if (connection.value?.blocked) return 'amber';
+  return statusColor(connection.value?.status);
+});
+
+const onuStatusColor = computed(() => {
+  if (showOnuError.value) return 'ruby';
+  return statusColor(connection.value?.onu?.status);
+});
+
+const registrationStatusColor = computed(() =>
+  statusColor(customer.value?.registration_status)
+);
 
 const messageFor = error => {
   const code = error?.response?.data?.error;
@@ -392,15 +412,13 @@ watch(() => props.conversationId, load, { immediate: true });
         </h4>
         <div v-if="connection.username" class="flex items-center gap-2">
           <Icon icon="i-lucide-user size-4 shrink-0 text-n-slate-11" />
-          <span class="text-n-slate-11">
-            {{ $t('CONVERSATION_SIDEBAR.LEAF.USERNAME') }}
-          </span>
           <span class="min-w-0 truncate">{{ connection.username }}</span>
         </div>
-        <div class="flex items-center gap-2">
-          <Icon :icon="statusIcon(connection.status)" />
-          <span>{{ statusLabel(connection.status) }}</span>
-        </div>
+        <Label
+          :label="statusLabel(connection.status)"
+          :color="connectionStatusColor"
+          compact
+        />
         <div v-if="connection.last_log" class="flex items-start gap-2">
           <Icon icon="i-lucide-scroll-text size-4 shrink-0 text-n-slate-11" />
           <span class="min-w-0 break-words">{{ connection.last_log }}</span>
@@ -412,15 +430,13 @@ watch(() => props.conversationId, load, { immediate: true });
         </h4>
         <div class="flex items-center gap-2">
           <Icon icon="i-lucide-barcode size-4 shrink-0 text-n-slate-11" />
-          <span class="text-n-slate-11">
-            {{ $t('CONVERSATION_SIDEBAR.LEAF.SERIAL') }}
-          </span>
           <span class="min-w-0 truncate">{{ connection.onu.serial }}</span>
         </div>
-        <div class="flex items-center gap-2">
-          <Icon :icon="statusIcon(connection.onu.status)" />
-          <span>{{ statusLabel(connection.onu.status) }}</span>
-        </div>
+        <Label
+          :label="statusLabel(connection.onu.status)"
+          :color="onuStatusColor"
+          compact
+        />
         <div v-if="showRx" class="flex items-center gap-2">
           <Icon icon="i-lucide-signal size-4 shrink-0 text-n-slate-11" />
           <span class="text-n-slate-11">
@@ -433,13 +449,11 @@ watch(() => props.conversationId, load, { immediate: true });
           <span class="min-w-0 break-words">{{ connection.onu.error }}</span>
         </div>
       </section>
-      <div class="flex items-center gap-2">
-        <Icon icon="i-lucide-badge-check size-4 shrink-0 text-n-slate-11" />
-        <span class="text-n-slate-11">
-          {{ $t('CONVERSATION_SIDEBAR.LEAF.REGISTRATION') }}
-        </span>
-        <span>{{ statusLabel(customer.registration_status) }}</span>
-      </div>
+      <Label
+        :label="statusLabel(customer.registration_status)"
+        :color="registrationStatusColor"
+        compact
+      />
       <div class="flex items-center gap-2">
         <Button
           v-if="canUnblock"
