@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="96" fill="#143028"/>
+  <path d="M256 360C256 220 340 130 430 84C340 176 300 268 300 360H256Z" fill="#F4F7F5"/>
+  <path d="M256 360C168 336 124 244 124 156C188 204 232 292 256 360Z" fill="#B7E4C7"/>
+  <text x="256" y="440" text-anchor="middle" fill="#F4F7F5" font-family="Georgia, serif" font-size="92" font-weight="700">Leaf</text>
+</svg>

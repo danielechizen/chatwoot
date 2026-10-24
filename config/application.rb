@@ -57,6 +57,8 @@ module Chatwoot
     end
     custom_namespace = Rails.root.join('custom/lib/custom.rb')
     require custom_namespace if custom_namespace.exist?
+    branding_initializer = Rails.root.join('custom/config/initializers/branding.rb')
+    require branding_initializer if branding_initializer.exist?
     # Add enterprise views to the view paths
     config.paths['app/views'].unshift('enterprise/app/views')
 

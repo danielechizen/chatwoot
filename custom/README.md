@@ -4,7 +4,8 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 
 ## Core files this fork touches
 
-- `config/application.rb` — eager-loads `custom/app/controllers` and `custom/app/services` when those directories exist, as separate Zeitwerk roots. While the application class loads, it requires `custom/lib/custom.rb` so `module Custom` exists before `prepend_mod_with`.
+- `config/application.rb` — eager-loads `custom/app/controllers` and `custom/app/services` when those directories exist, as separate Zeitwerk roots. While the application class loads, it requires `custom/lib/custom.rb` so `module Custom` exists before `prepend_mod_with`, then requires `custom/config/initializers/branding.rb`. That directory is not an autoload path. The require is the seam.
+- `app/views/widgets/show.html.erb` — `disableBranding: true`. The widget hides the Chatwoot mark without turning on the `disable_branding` feature. The help center footer is unchanged.
 - `config/initializers/01_inject_enterprise_edition_module.rb` — `const_get_maybe_false` must return nil, not false, when the receiver is not a module or the constant is missing. `&&` used to return boolean false, and the next lookup called `const_defined?` on that false. `const_defined?(name, false)` does not trigger Zeitwerk, so `Enterprise` can be missing at that moment too.
 - `config/routes.rb` — Leaf routes under `integrations/leaf`: `GET customer`, `GET invoices`, `POST payment`, `POST unblock`, `POST disconnect`, `POST clear_mac`, `POST test`.
 - `config/integration/apps.yml` — `leaf_admin` catalog entry. `visible_properties` stays `system_url` only, so the API key is never returned to the browser.
@@ -22,6 +23,10 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 ## New code
 
 - `custom/lib/custom.rb` — empty `module Custom`, required at boot. Leaf code stays under `Leaf::`. The initializer must still return nil rather than false when a `Custom::` or `Enterprise::` constant is missing.
+- `custom/app/services/custom/branding.rb` — `Custom::Branding.apply!`
+- `custom/config/initializers/branding.rb` — applies branding once per process and prepends the plan reset hook
+- `custom/bin/check_seams.rb` — checks the fork seams after an upstream merge
+- `public/brand-assets/leaf/logo.svg`, `logo_dark.svg`, and `logo_thumbnail.svg` — Leaf marks. The original files in `public/brand-assets/` stay untouched.
 - `custom/app/controllers/api/v1/accounts/integrations/leaf_controller.rb`
 - `custom/app/services/leaf/client.rb`
 - `custom/app/services/leaf/contract.rb`
@@ -58,6 +63,32 @@ Do not add adapter-only keys to those payloads. Map external responses inside th
 Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`, `unknown_invoice`, `missing_identifier`, `not_found`, `connection_not_blocked`, `invalid_credentials`. A `contract_number` that is not a string is also 422. Customer lookup stays HTTP 200 when the customer is missing.
 
 Connection changes for the mock live in `Rails.cache` under the account id and the matched identifier. No migration.
+
+## Branding
+
+`Custom::Branding.apply!` writes these `InstallationConfig` keys when the stored value is blank or still the Chatwoot default. A later manual value that is neither blank nor that default is kept.
+
+| Key | Leaf value | Default that gets replaced |
+| --- | --- | --- |
+| `INSTALLATION_NAME` | `Leaf` | `Chatwoot` |
+| `BRAND_NAME` | `Leaf` | `Chatwoot` |
+| `LOGO` | `/brand-assets/leaf/logo.svg` | `/brand-assets/logo.svg` |
+| `LOGO_DARK` | `/brand-assets/leaf/logo_dark.svg` | `/brand-assets/logo_dark.svg` |
+| `LOGO_THUMBNAIL` | `/brand-assets/leaf/logo_thumbnail.svg` | `/brand-assets/logo_thumbnail.svg` |
+
+The boot initializer calls `apply!`. Saving a config clears `GlobalConfig` through the existing `after_commit`. If the database or the `installation_configs` table is missing (`db:create`), that boot call skips only `ActiveRecord::NoDatabaseError` and a missing-relation `ActiveRecord::StatementInvalid`. Other errors propagate.
+
+On the community plan, `Internal::ReconcilePlanConfigService#reconcile_premium_config` copies the Chatwoot premium defaults back. The prepended module calls `super`, then `Custom::Branding.apply!`, so those five keys become Leaf again. The word Leaf is not copied into Vue.
+
+The widget seam is the literal `disableBranding: true` in `app/views/widgets/show.html.erb`.
+
+After every upstream merge, run:
+
+```sh
+ruby custom/bin/check_seams.rb
+```
+
+The script is not part of a GitHub workflow. It exits 0 when every seam snippet is present, and exits 1 after printing each missing path and snippet.
 
 ## Mock fixtures
 

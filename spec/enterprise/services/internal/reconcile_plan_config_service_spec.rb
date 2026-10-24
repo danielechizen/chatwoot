@@ -25,23 +25,39 @@ RSpec.describe Internal::ReconcilePlanConfigService do
       end
 
       it 'creates a premium config reset warning if config was modified' do
-        create(:installation_config, name: 'INSTALLATION_NAME', value: 'custom-name')
+        record = InstallationConfig.find_or_initialize_by(name: 'INSTALLATION_NAME')
+        record.value = 'custom-name'
+        record.save!
         service.perform
         expect(Redis::Alfred.get(Redis::Alfred::CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING)).to eq('true')
       end
 
       it 'will not create a premium config reset warning if config is not modified' do
-        create(:installation_config, name: 'INSTALLATION_NAME', value: 'Chatwoot')
+        {
+          'INSTALLATION_NAME' => 'Chatwoot',
+          'BRAND_NAME' => 'Chatwoot',
+          'LOGO' => '/brand-assets/logo.svg',
+          'LOGO_DARK' => '/brand-assets/logo_dark.svg',
+          'LOGO_THUMBNAIL' => '/brand-assets/logo_thumbnail.svg'
+        }.each do |name, value|
+          record = InstallationConfig.find_or_initialize_by(name: name)
+          record.value = value
+          record.save!
+        end
         service.perform
         expect(Redis::Alfred.get(Redis::Alfred::CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING)).to be_nil
       end
 
-      it 'updates the premium configs to default' do
-        create(:installation_config, name: 'INSTALLATION_NAME', value: 'custom-name')
-        create(:installation_config, name: 'LOGO', value: '/custom-path/logo.svg')
+      it 'updates the premium configs to default and Leaf replaces the Chatwoot brand' do
+        installation_name = InstallationConfig.find_or_initialize_by(name: 'INSTALLATION_NAME')
+        installation_name.value = 'custom-name'
+        installation_name.save!
+        logo = InstallationConfig.find_or_initialize_by(name: 'LOGO')
+        logo.value = '/custom-path/logo.svg'
+        logo.save!
         service.perform
-        expect(InstallationConfig.find_by(name: 'INSTALLATION_NAME').value).to eq('Chatwoot')
-        expect(InstallationConfig.find_by(name: 'LOGO').value).to eq('/brand-assets/logo.svg')
+        expect(InstallationConfig.find_by(name: 'INSTALLATION_NAME').value).to eq('Leaf')
+        expect(InstallationConfig.find_by(name: 'LOGO').value).to eq('/brand-assets/leaf/logo.svg')
       end
     end
 
@@ -72,8 +88,12 @@ RSpec.describe Internal::ReconcilePlanConfigService do
       end
 
       it 'does not update the LOGO config' do
-        create(:installation_config, name: 'INSTALLATION_NAME', value: 'custom-name')
-        create(:installation_config, name: 'LOGO', value: '/custom-path/logo.svg')
+        installation_name = InstallationConfig.find_or_initialize_by(name: 'INSTALLATION_NAME')
+        installation_name.value = 'custom-name'
+        installation_name.save!
+        logo = InstallationConfig.find_or_initialize_by(name: 'LOGO')
+        logo.value = '/custom-path/logo.svg'
+        logo.save!
         service.perform
         expect(InstallationConfig.find_by(name: 'INSTALLATION_NAME').value).to eq('custom-name')
         expect(InstallationConfig.find_by(name: 'LOGO').value).to eq('/custom-path/logo.svg')
