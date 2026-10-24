@@ -16,11 +16,17 @@ module Custom::BrandingBoot
   end
 
   def apply_branding
+    return if precompiling_assets?
+
     Custom::Branding.apply!
   rescue ActiveRecord::NoDatabaseError
     Rails.logger.debug('Leaf branding skipped: database does not exist')
   rescue ActiveRecord::StatementInvalid => error
     raise unless missing_installation_configs?(error)
+  end
+
+  def precompiling_assets?
+    defined?(Rake) && Rake.application.top_level_tasks.include?('assets:precompile')
   end
 
   def prepend_reconcile
