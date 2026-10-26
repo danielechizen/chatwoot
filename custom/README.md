@@ -54,7 +54,7 @@ There is no new contact column, no Contact model change, and no contact strong-p
 
 Public client methods return `Leaf::Contract` hashes only. Omit a key when the adapter has no value. Map the Leaf response inside `Leaf::HttpAdapter` and `Leaf::Client`, then build the hash with `Leaf::Contract`. The PPPoE password never leaves that mapping.
 
-`Leaf::HttpAdapter` calls `system_url` + `/api/v2` with header `x-auth-header`. TLS verification is off only for those requests (`verify: false`), and they do not follow redirects. Other Chatwoot HTTP clients keep verification on.
+`Leaf::HttpAdapter` calls `system_url` + `/api/v2` with header `x-auth-header`. TLS verification is off only for those requests (`verify: false`), and they do not follow redirects. Other Chatwoot HTTP clients keep verification on. Each Leaf request, including the settings test, is logged at debug with the method, URL, HTTP status, `statusCode`, `detailCode`, and `detailDescription`. The log does not include the API key or `x-auth-header`.
 
 Customer lookup (`GET customer`) searches contracts by document digits, then phone digits. It returns `found` plus `customer`, or HTTP 200 `found: false` with `reason` `missing_identifier` or `not_found`. `customer` has `name`, `registration_status` (`active` → `ativo`, `blocked` → `bloqueado`), `contracts` (`number`, `label`), and `connection` when the contract has a `connectionId`. A blank `contract_number` uses the first contract. An id that is not in that contact's list is 422 `not_found`.
 

@@ -85,12 +85,16 @@ class Leaf::HttpAdapter
       options[:headers] = headers.merge('Content-Type' => 'application/json')
     end
 
-    parse(HTTParty.public_send(verb, endpoint(path), options))
+    url = request_url(path, query)
+    response = HTTParty.public_send(verb, endpoint(path), options)
+    log_exchange(verb, url, response)
+    parse(response)
   rescue Leaf::Contract::Error
     raise
   rescue HTTParty::Error, SocketError, SystemCallError, Timeout::Error,
          JSON::ParserError, OpenSSL::SSL::SSLError => error
-    raise Leaf::Contract::Error.new('leaf_request_failed', error.message)
+    log_transport_failure(verb, request_url(path, query), error)
+    raise Leaf::Contract::Error.new('leaf_request_failed', safe_log_text(error.message))
   end
 
   def leaf_request_options
@@ -134,6 +138,38 @@ class Leaf::HttpAdapter
     return 'invalid_credentials' if %w[19 43 bad_token forbidden].include?(detail)
 
     'leaf_request_failed'
+  end
+
+  def request_url(path, query)
+    url = endpoint(path)
+    return url if query.blank?
+
+    "#{url}?#{URI.encode_www_form(query)}"
+  end
+
+  def log_exchange(verb, url, response)
+    Rails.logger.debug { leaf_log_line(verb, url, response.code, response_body(response)) }
+  rescue JSON::ParserError
+    Rails.logger.debug { leaf_log_line(verb, url, response.code, {}) }
+  end
+
+  def log_transport_failure(verb, url, error)
+    Rails.logger.debug { leaf_log_line(verb, url, nil, { 'detailDescription' => error.message }) }
+  end
+
+  def leaf_log_line(verb, url, http_status, body)
+    '[Leaf] ' \
+      "#{verb.to_s.upcase} #{safe_log_text(url)} " \
+      "http=#{http_status} statusCode=#{body['statusCode']} detailCode=#{body['detailCode']} " \
+      "detailDescription=#{safe_log_text(body['detailDescription'])}"
+  end
+
+  def safe_log_text(text)
+    value = text.to_s
+    secret = api_key
+    return value if secret.blank?
+
+    value.gsub(/#{Regexp.escape(secret)}/, '[filtered]')
   end
 
   def endpoint(path)
