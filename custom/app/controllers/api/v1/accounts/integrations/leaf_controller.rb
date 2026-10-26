@@ -68,7 +68,16 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     hook = enabled_hook
     return if performed?
 
-    render json: Leaf::Client.build(hook).test_connection
+    system_url = optional_string_param(:system_url)
+    return if performed?
+
+    api_key = optional_string_param(:api_key)
+    return if performed?
+
+    settings = (hook.settings || {}).stringify_keys
+    settings['system_url'] = system_url if system_url.present?
+    settings['api_key'] = api_key if api_key.present?
+    render json: Leaf::Client.new(Leaf::HttpAdapter.new(settings: settings)).test_connection
   rescue Leaf::Contract::Error => e
     render_leaf_error(e)
   end
@@ -117,6 +126,15 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     hook = Current.account.hooks.find_by(app_id: APP_ID, status: :enabled)
     render json: { error: 'leaf_admin_not_enabled' }, status: :unprocessable_entity if hook.blank?
     hook
+  end
+
+  def optional_string_param(key)
+    value = params[key]
+    return if value.nil? || value == ''
+    return value.strip if value.is_a?(String)
+
+    render_could_not_create_error("#{key} must be a string")
+    nil
   end
 
   def optional_contract_number

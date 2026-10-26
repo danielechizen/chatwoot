@@ -64,7 +64,7 @@ Invoices (`GET invoices`) require `contract_number`. The server checks that id, 
 
 Unblock calls extend, disconnect calls disconnect with `force: false`, and clear MAC calls clear-mac. Each returns a small contract object. The controller writes a private note with `detailDescription` on success and on error, sent as the current user. The panel refreshes and does not write that note.
 
-`POST test` calls `GET /integrations/contracts?limit=1` and returns `{ "ok": true }` or 422 `invalid_credentials`.
+`POST test` calls `GET /integrations/contracts?limit=1` and returns `{ "ok": true }` or 422 `invalid_credentials`. The request may include the system URL and API key currently in the form. A blank field falls back to the saved hook, so a test after save still uses both stored values. The live servlet sends `statusCode` and `detailCode` as names (`OK`, `ERROR`, `BAD_TOKEN`, `FORBIDDEN`); integer codes from the OpenAPI file are accepted too.
 
 Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`, `unknown_invoice`, `missing_identifier`, `not_found`, `invalid_credentials`, `leaf_request_failed`. A `contract_number` that is not a digit string is also 422.
 

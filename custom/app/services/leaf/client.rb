@@ -155,11 +155,26 @@ class Leaf::Client
   end
 
   def registration_status(status)
-    case status
+    case enum_name(status)
     when 'active' then 'ativo'
     when 'blocked' then 'bloqueado'
     else raise Leaf::Contract::Error, 'leaf_request_failed'
     end
+  end
+
+  def enum_name(value)
+    value.to_s.strip.downcase
+  end
+
+  def blocked_contract?(contract)
+    enum_name(contract['status']) == 'blocked'
+  end
+
+  def connection_status(value)
+    status = enum_name(value)
+    return status if Leaf::Contract::CONNECTION_STATUSES.include?(status)
+
+    raise Leaf::Contract::Error, 'leaf_request_failed'
   end
 
   def connection_row(contract)
@@ -188,7 +203,7 @@ class Leaf::Client
   def fallback_connection(contract)
     {
       'status' => 'offline',
-      'blocked' => contract['status'] == 'blocked',
+      'blocked' => blocked_contract?(contract),
       'technology' => 'pppoe'
     }
   end
@@ -199,8 +214,8 @@ class Leaf::Client
     gpon = row['gpon']
     attributes = {
       'username' => row['pppoeLogin'],
-      'status' => row['status'],
-      'blocked' => contract['status'] == 'blocked',
+      'status' => connection_status(row['status']),
+      'blocked' => blocked_contract?(contract),
       'technology' => gpon.is_a?(Hash) ? 'ftth' : 'pppoe'
     }
     message = row.dig('auth', 'message')
@@ -214,8 +229,8 @@ class Leaf::Client
     return unless gpon.is_a?(Hash)
 
     serial = row['onuSerial'].to_s
-    status = gpon['status'].to_s
-    return if serial.blank? || status.blank?
+    status = enum_name(gpon['status'])
+    return if serial.blank? || Leaf::Contract::ONU_STATUSES.exclude?(status)
 
     onu = { 'serial' => serial, 'status' => status }
     onu['rx_dbm'] = gpon['rxPower'] unless gpon['rxPower'].nil?

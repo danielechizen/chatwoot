@@ -50,8 +50,14 @@ class LeafAPI extends ApiClient {
     });
   }
 
-  test() {
-    return axios.post(`${this.url}/test`);
+  test(systemUrl, apiKey) {
+    const payload = {};
+    const url = (systemUrl || '').trim();
+    const key = (apiKey || '').trim();
+    if (url) payload.system_url = url;
+    if (key) payload.api_key = key;
+
+    return axios.post(`${this.url}/test`, payload);
   }
 }
 

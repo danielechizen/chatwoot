@@ -56,7 +56,7 @@ const save = async () => {
 const testConnection = async () => {
   testing.value = true;
   try {
-    await LeafAPI.test();
+    await LeafAPI.test(systemUrl.value, apiKey.value);
     useAlert(t('INTEGRATION_APPS.LEAF.TEST_SUCCESS'));
   } catch {
     useAlert(t('INTEGRATION_APPS.LEAF.TEST_ERROR'));

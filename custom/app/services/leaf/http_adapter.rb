@@ -108,16 +108,30 @@ class Leaf::HttpAdapter
   end
 
   def parse(response)
-    body = response.parsed_response
-    body = JSON.parse(response.body.to_s) if !body.is_a?(Hash) && response.body.present?
-    body = {} unless body.is_a?(Hash)
-    return body if response.code.to_i.between?(200, 299) && body['statusCode'] == 1
+    body = response_body(response)
+    return body if response.code.to_i.between?(200, 299) && success_status?(body['statusCode'])
 
     raise Leaf::Contract::Error.new(error_code(response, body), body['detailDescription'])
   end
 
+  def response_body(response)
+    body = response.parsed_response
+    body = JSON.parse(response.body.to_s) if !body.is_a?(Hash) && response.body.present?
+    body = {} unless body.is_a?(Hash)
+    body.stringify_keys
+  end
+
+  # The live Leaf servlet returns enum names (OK, ERROR, BAD_TOKEN, FORBIDDEN).
+  # The OpenAPI file also documents the integer codes, so both are accepted.
+  def success_status?(status)
+    status == 1 || %w[1 ok].include?(status.to_s.strip.downcase)
+  end
+
   def error_code(response, body)
-    return 'invalid_credentials' if response.code.to_i == 403 || body['detailCode'] == 19
+    return 'invalid_credentials' if [401, 403].include?(response.code.to_i)
+
+    detail = body['detailCode'].to_s.strip.downcase
+    return 'invalid_credentials' if %w[19 43 bad_token forbidden].include?(detail)
 
     'leaf_request_failed'
   end
