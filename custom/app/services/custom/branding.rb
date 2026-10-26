@@ -5,10 +5,13 @@ class Custom::Branding
   REPLACEMENTS = {
     'INSTALLATION_NAME' => [PREVIOUS_NAMES, PRODUCT_NAME],
     'BRAND_NAME' => [PREVIOUS_NAMES, PRODUCT_NAME],
-    'LOGO' => [['/brand-assets/logo.svg'], '/brand-assets/leaf/logo.svg'],
-    'LOGO_DARK' => [['/brand-assets/logo_dark.svg'], '/brand-assets/leaf/logo_dark.svg'],
-    'LOGO_THUMBNAIL' => [['/brand-assets/logo_thumbnail.svg'], '/brand-assets/leaf/logo_thumbnail.svg'],
-    'FAVICON' => [[''], '/brand-assets/leaf/favicon.svg']
+    'LOGO' => [['/brand-assets/logo.svg', '/brand-assets/leaf/logo.svg'], '/brand-assets/leaf/logo.png'],
+    'LOGO_DARK' => [['/brand-assets/logo_dark.svg', '/brand-assets/leaf/logo_dark.svg'], '/brand-assets/leaf/logo_dark.png'],
+    'LOGO_THUMBNAIL' => [
+      ['/brand-assets/logo_thumbnail.svg', '/brand-assets/leaf/logo_thumbnail.svg'],
+      '/brand-assets/leaf/logo_thumbnail.png'
+    ],
+    'FAVICON' => [['', '/brand-assets/leaf/favicon.svg'], '/brand-assets/leaf/favicon.png']
   }.freeze
 
   def self.apply!

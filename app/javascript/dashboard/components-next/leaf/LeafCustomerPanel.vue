@@ -468,7 +468,7 @@ watch(() => props.conversationId, load, { immediate: true });
           <span class="min-w-0 break-words">{{ connection.onu.error }}</span>
         </div>
       </section>
-      <div class="flex flex-wrap items-center gap-2 self-start">
+      <div class="flex flex-col items-start gap-1 self-start">
         <span class="text-xs text-n-slate-11">
           {{ $t('CONVERSATION_SIDEBAR.LEAF.CONTRACT_STATUS') }}
         </span>

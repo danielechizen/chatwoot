@@ -26,7 +26,7 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 - `custom/app/services/custom/branding.rb` — `Custom::Branding.apply!`
 - `custom/config/initializers/branding.rb` — applies branding once per process and prepends the plan reset hook
 - `custom/bin/check_seams.rb` — checks the fork seams after an upstream merge
-- `public/brand-assets/leaf/logo.svg`, `logo_dark.svg`, `logo_thumbnail.svg`, and `favicon.svg` — Leaf Agent marks. The original files in `public/brand-assets/` and `public/favicon-*.png` stay untouched.
+- `public/brand-assets/leaf/logo.png`, `logo_dark.png`, `logo_thumbnail.png`, and `favicon.png` — Leaf Agent marks. The original files in `public/brand-assets/` and `public/favicon-*.png` stay untouched.
 - `custom/app/controllers/api/v1/accounts/integrations/leaf_controller.rb`
 - `custom/app/services/leaf/client.rb`
 - `custom/app/services/leaf/http_adapter.rb`
@@ -80,16 +80,16 @@ Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`
 | --- | --- | --- |
 | `INSTALLATION_NAME` | `Leaf Agent` | blank, `Chatwoot`, or `Leaf` |
 | `BRAND_NAME` | `Leaf Agent` | blank, `Chatwoot`, or `Leaf` |
-| `LOGO` | `/brand-assets/leaf/logo.svg` | blank or `/brand-assets/logo.svg` |
-| `LOGO_DARK` | `/brand-assets/leaf/logo_dark.svg` | blank or `/brand-assets/logo_dark.svg` |
-| `LOGO_THUMBNAIL` | `/brand-assets/leaf/logo_thumbnail.svg` | blank or `/brand-assets/logo_thumbnail.svg` |
-| `FAVICON` | `/brand-assets/leaf/favicon.svg` | blank |
+| `LOGO` | `/brand-assets/leaf/logo.png` | blank, `/brand-assets/logo.svg`, or `/brand-assets/leaf/logo.svg` |
+| `LOGO_DARK` | `/brand-assets/leaf/logo_dark.png` | blank, `/brand-assets/logo_dark.svg`, or `/brand-assets/leaf/logo_dark.svg` |
+| `LOGO_THUMBNAIL` | `/brand-assets/leaf/logo_thumbnail.png` | blank, `/brand-assets/logo_thumbnail.svg`, or `/brand-assets/leaf/logo_thumbnail.svg` |
+| `FAVICON` | `/brand-assets/leaf/favicon.png` | blank or `/brand-assets/leaf/favicon.svg` |
 
 The boot initializer calls `apply!`. Saving a config clears `GlobalConfig` through the existing `after_commit`. If the database or the `installation_configs` table is missing (`db:create`), that boot call skips only `ActiveRecord::NoDatabaseError` and a missing-relation `ActiveRecord::StatementInvalid`. Other errors propagate.
 
 Asset precompile skips that boot call when the process is `rake` and ARGV includes `assets:precompile`, and does not query `InstallationConfig`.
 
-On the community plan, `Internal::ReconcilePlanConfigService#reconcile_premium_config` copies the Chatwoot premium defaults back. The prepended module calls `super`, then `Custom::Branding.apply!`, so the name becomes Leaf Agent again, the logos return to the Leaf paths, and a blank favicon is set to the Leaf SVG. The product name is not copied into Vue. The dashboard favicon link uses `FAVICON` when it is set, and the upstream PNG files otherwise.
+On the community plan, `Internal::ReconcilePlanConfigService#reconcile_premium_config` copies the Chatwoot premium defaults back. The prepended module calls `super`, then `Custom::Branding.apply!`, so the name becomes Leaf Agent again, the logos return to the Leaf paths, and a blank favicon is set to the Leaf PNG. The product name is not copied into Vue. The dashboard favicon link uses `FAVICON` when it is set, and the upstream PNG files otherwise.
 
 The Super Admin alert “Unauthorized premium changes detected” is `CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING`. Community reconcile sets it when an `enterprise/config/premium_installation_config.yml` value differs from the database. `premium_config_reset_required?` skips `INSTALLATION_NAME`, `BRAND_NAME`, `LOGO`, `LOGO_DARK`, and `LOGO_THUMBNAIL`, so those Leaf values do not create the warning; `BRAND_URL`, `TERMS_URL`, and every other premium key still do. `FAVICON` is not in that premium list. SAML is not one of those configs, and this fork does not write `ENABLE_SAML_SSO_LOGIN` or turn on the account `saml` flag.
 

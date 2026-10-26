@@ -57,7 +57,7 @@ RSpec.describe Internal::ReconcilePlanConfigService do
         logo.save!
         service.perform
         expect(InstallationConfig.find_by(name: 'INSTALLATION_NAME').value).to eq('Leaf Agent')
-        expect(InstallationConfig.find_by(name: 'LOGO').value).to eq('/brand-assets/leaf/logo.svg')
+        expect(InstallationConfig.find_by(name: 'LOGO').value).to eq('/brand-assets/leaf/logo.png')
       end
     end
 
