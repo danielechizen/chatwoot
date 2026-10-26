@@ -1,18 +1,28 @@
 module Custom::ReapplyBranding
+  # These are the premium installation configs Custom::Branding writes on purpose.
+  # FAVICON is not in the premium list and is not ignored here.
+  IGNORED_PREMIUM_CONFIGS = %w[INSTALLATION_NAME BRAND_NAME LOGO LOGO_DARK LOGO_THUMBNAIL].freeze
+
   def perform
-    branding_only = community_plan? && Custom::Branding.drift_is_leaf_only?
     super
     return unless community_plan?
 
     disable_saml_on_community_plan
-    return unless branding_only
-
-    Redis::Alfred.delete(Redis::Alfred::CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING)
   end
 
   def reconcile_premium_config
     super
     Custom::Branding.apply!
+  end
+
+  def premium_config_reset_required?
+    premium_config.any? do |config|
+      config = config.with_indifferent_access
+      next false if IGNORED_PREMIUM_CONFIGS.include?(config[:name])
+
+      existing_config = InstallationConfig.find_by(name: config[:name])
+      existing_config&.value != config[:value] if existing_config.present?
+    end
   end
 
   private

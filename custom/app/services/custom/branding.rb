@@ -21,26 +21,4 @@ class Custom::Branding
       record.save!
     end
   end
-
-  def self.leaf_value(name)
-    REPLACEMENTS[name]&.last
-  end
-
-  # Community plan warns when a premium installation config is not the Chatwoot
-  # default. Leaf branding is the only drift this fork writes on purpose.
-  def self.drift_is_leaf_only?
-    premium_configs.all? do |config|
-      name = config['name']
-      default = config['value']
-      current = InstallationConfig.find_by(name: name)&.value
-      next true if current.nil? || current == default
-
-      leaf_value(name) == current
-    end
-  end
-
-  def self.premium_configs
-    path = Rails.root.join('enterprise/config/premium_installation_config.yml')
-    YAML.safe_load(path.read)
-  end
 end

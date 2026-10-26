@@ -14,7 +14,8 @@ checks = [
   ['custom/app/services/custom/branding.rb', 'INSTALLATION_NAME'],
   ['custom/app/services/custom/branding.rb', '/brand-assets/leaf/favicon.svg'],
   ['app/views/layouts/vueapp.html.erb', "['FAVICON']"],
-  ['custom/config/initializers/branding.rb', 'CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING'],
+  ['enterprise/app/services/internal/reconcile_plan_config_service.rb', 'premium_config_reset_required?'],
+  ['custom/config/initializers/branding.rb', 'def premium_config_reset_required?'],
   ['custom/config/initializers/branding.rb', "File.basename($PROGRAM_NAME) == 'rake' && ARGV.any? { |arg| arg.include?('assets:precompile') }"]
 ]
 

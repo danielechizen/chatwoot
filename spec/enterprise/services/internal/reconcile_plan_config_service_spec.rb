@@ -25,8 +25,8 @@ RSpec.describe Internal::ReconcilePlanConfigService do
       end
 
       it 'creates a premium config reset warning if config was modified' do
-        record = InstallationConfig.find_or_initialize_by(name: 'INSTALLATION_NAME')
-        record.value = 'custom-name'
+        record = InstallationConfig.find_or_initialize_by(name: 'BRAND_URL')
+        record.value = 'https://example.test'
         record.save!
         service.perform
         expect(Redis::Alfred.get(Redis::Alfred::CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING)).to eq('true')
