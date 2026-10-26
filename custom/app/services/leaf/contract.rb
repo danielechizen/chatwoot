@@ -1,5 +1,5 @@
 class Leaf::Contract
-  REGISTRATION_STATUSES = %w[ativo inativo suspenso].freeze
+  REGISTRATION_STATUSES = %w[ativo inativo suspenso bloqueado].freeze
   CONNECTION_STATUSES = %w[online offline].freeze
   ONU_STATUSES = %w[online offline].freeze
   PAYMENT_METHODS = %w[pix boleto card].freeze
@@ -77,7 +77,14 @@ class Leaf::Contract
     end
 
     def boleto_attributes(details)
-      { pdf_base64: required_string(value(details, :pdf_base64)) }
+      pdf = value(details, :pdf_base64)
+      url = value(details, :payment_url)
+      attributes = {}
+      attributes[:pdf_base64] = required_string(pdf) if pdf.present?
+      attributes[:payment_url] = required_string(url) if url.present?
+      raise ArgumentError, 'invalid leaf contract value' if attributes.empty?
+
+      attributes
     end
 
     def card_attributes(details)
@@ -87,9 +94,10 @@ class Leaf::Contract
     def customer_attributes(customer)
       attributes = {
         name: required_string(value(customer, :name)),
-        registration_status: one_of(value(customer, :registration_status), REGISTRATION_STATUSES),
-        connection: connection_attributes(value(customer, :connection))
+        registration_status: one_of(value(customer, :registration_status), REGISTRATION_STATUSES)
       }
+      connection = value(customer, :connection)
+      attributes[:connection] = connection_attributes(connection) if connection.present?
       contracts = value(customer, :contracts)
       attributes[:contracts] = contract_list(contracts) unless contracts.nil?
       attributes
@@ -131,11 +139,13 @@ class Leaf::Contract
     end
 
     def contract_attributes(contract)
-      {
+      attributes = {
         number: required_string(value(contract, :number)),
-        label: required_string(value(contract, :label)),
-        payment_methods: payment_method_list(value(contract, :payment_methods))
+        label: required_string(value(contract, :label))
       }
+      methods = value(contract, :payment_methods)
+      attributes[:payment_methods] = payment_method_list(methods) unless methods.nil?
+      attributes
     end
 
     def payment_method_list(list)
@@ -199,10 +209,11 @@ class Leaf::Contract
 end
 
 class Leaf::Contract::Error < StandardError
-  attr_reader :code
+  attr_reader :code, :detail_description
 
-  def initialize(code)
+  def initialize(code, detail_description = nil)
     @code = code
-    super
+    @detail_description = detail_description
+    super(detail_description.presence || code)
   end
 end

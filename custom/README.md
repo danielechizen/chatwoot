@@ -29,40 +29,46 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 - `public/brand-assets/leaf/logo.svg`, `logo_dark.svg`, and `logo_thumbnail.svg` — Leaf Agent marks. The original files in `public/brand-assets/` stay untouched.
 - `custom/app/controllers/api/v1/accounts/integrations/leaf_controller.rb`
 - `custom/app/services/leaf/client.rb`
+- `custom/app/services/leaf/http_adapter.rb`
 - `custom/app/services/leaf/contract.rb`
 - `custom/app/services/leaf/mock_adapter.rb`
+- `custom/bin/publish-image.sh`
 - `custom/app/services/leaf/fixtures/customers.json` plus `pix.png` and `boleto.pdf` (encoded into the payment payload at runtime)
 - `app/javascript/dashboard/api/leaf.js`
 - `app/javascript/dashboard/components-next/leaf/LeafCustomerPanel.vue`
 
-`Leaf::Client.build` returns `Leaf::MockAdapter`. Customer, invoice, payment, and connection actions do not call the external system. `POST test` reads the enabled hook and succeeds only when `system_url` and `api_key` are both present. The controller requires an enabled `Integrations::Hook` with `app_id` `leaf_admin`.
+`Leaf::Client.build` uses `Leaf::HttpAdapter` (`system_url` + `/api/v2`, header `x-auth-header`). TLS verification is off only for those Leaf requests. `Leaf::MockAdapter` stays in the repo and is not used for an enabled hook. `POST test` calls `GET /integrations/contracts?limit=1`. The controller requires an enabled `Integrations::Hook` with `app_id` `leaf_admin`.
+
+Publish with `bash custom/bin/publish-image.sh local` (`localhost:5000/leaf-agent:latest` and `:<sha>`) or `bash custom/bin/publish-image.sh remote` (`$LEAF_REGISTRY/leaf-agent`, same tags).
 
 ## Contact API contract
 
-Lookup uses the existing contact fields only, in this order:
+Lookup uses the existing contact fields only, digits only, in this order:
 
 1. `custom_attributes["cpf_cnpj"]`
 2. `phone_number`
 
-There is no new contact column, no Contact model change, and no contact strong-params change. Match is exact string equality. Blank values are skipped.
+There is no new contact column, no Contact model change, and no contact strong-params change. Blank values are skipped. A selected `contractId` is checked against that contact before Leaf is called for the connection or the delayed invoices.
 
 ## Adapters
 
-Public client methods return `Leaf::Contract` hashes only. Omit a key when the adapter has no value.
+Public client methods return `Leaf::Contract` hashes only. Omit a key when the adapter has no value. Map the Leaf response inside `Leaf::HttpAdapter` and `Leaf::Client`, then build the hash with `Leaf::Contract`. The PPPoE password never leaves that mapping.
 
-Customer lookup (`GET customer`) is `found` plus `customer`, or `found: false` with `reason` `missing_identifier` or `not_found`. `customer` has `name`, `registration_status`, and `connection`. It does not include open invoices. `connection` may include `username` and `last_log`. `onu` is present only for `ftth` when the adapter has one: `serial`, `status` (`online` or `offline`), optional `rx_dbm`, and optional `error` when offline. `contracts` is optional. Each contract has `number`, `label`, and `payment_methods` (`pix`, `boleto`, `card`).
+`Leaf::HttpAdapter` calls `system_url` + `/api/v2` with header `x-auth-header`. TLS verification is off only for those requests (`verify: false`), and they do not follow redirects. Other Chatwoot HTTP clients keep verification on.
 
-Invoices (`GET invoices?conversation_id=&contract_number=`): `contract_number` is optional. The response has `payment_methods`, `open_invoices` (at most 5, `due_on` ascending, the most overdue), and `contract_number` when the request named one or every returned invoice belongs to the same contract. With no `contract_number`, invoices are taken across contracts and `payment_methods` is the intersection of the methods for the contracts in that result. `POST payment` returns 422 `unknown_method` when the method is not available for that invoice's contract.
+Customer lookup (`GET customer`) searches contracts by document digits, then phone digits. It returns `found` plus `customer`, or HTTP 200 `found: false` with `reason` `missing_identifier` or `not_found`. `customer` has `name`, `registration_status` (`active` → `ativo`, `blocked` → `bloqueado`), `contracts` (`number`, `label`), and `connection` when the contract has a `connectionId`. A blank `contract_number` uses the first contract. An id that is not in that contact's list is 422 `not_found`.
 
-Unblock, disconnect, and clear MAC return a small contract object and update the mock cache so the next customer fetch shows the change. Disconnect sets connection `status` to `offline` and `last_log` to `Desconectado pelo atendente`. Clear MAC succeeds even though the customer payload does not display a MAC. Unblock still returns `unblocked`, `name`, and `connection`.
+`connection.username` is the PPPoE login. `blocked` follows the contract status. `last_log` is `auth.message` when present. ONU is included only for `ftth` when `gpon` has a serial and status: optional `rx_dbm`, and `error` when offline and the alarm is not `ND`. Without `connectionId`, the panel hides the connection, the ONU, and the three buttons.
 
-`POST test` returns `{ "ok": true }` or 422 `invalid_credentials`.
+Invoices (`GET invoices`) require `contract_number`. The server checks that id, then loads delayed billets (limit 5, due date ascending). `payment_methods` comes from that response (`pix`, `bankSlip`, `creditCard`). `POST payment` checks the billet id and the method, then returns PIX (`copy_paste`, `image_base64`), boleto (`pdf_base64` and/or `payment_url`), or card (`payment_url`).
 
-Do not add adapter-only keys to those payloads. Map external responses inside the adapter, then build the hash with `Leaf::Contract`.
+Unblock calls extend, disconnect calls disconnect with `force: false`, and clear MAC calls clear-mac. Each returns a small contract object. The controller writes a private note with `detailDescription` on success and on error, sent as the current user. The panel refreshes and does not write that note.
 
-Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`, `unknown_invoice`, `missing_identifier`, `not_found`, `connection_not_blocked`, `invalid_credentials`. A `contract_number` that is not a string is also 422. Customer lookup stays HTTP 200 when the customer is missing.
+`POST test` calls `GET /integrations/contracts?limit=1` and returns `{ "ok": true }` or 422 `invalid_credentials`.
 
-Connection changes for the mock live in `Rails.cache` under the account id and the matched identifier. No migration.
+Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`, `unknown_invoice`, `missing_identifier`, `not_found`, `invalid_credentials`, `leaf_request_failed`. A `contract_number` that is not a digit string is also 422.
+
+`Leaf::MockAdapter` stays in the repo and is not used for an enabled hook. Its cache, when the class is used directly, still lives in `Rails.cache`. No migration.
 
 ## Branding
 

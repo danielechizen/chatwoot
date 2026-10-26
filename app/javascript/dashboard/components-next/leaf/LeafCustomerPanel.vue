@@ -67,13 +67,12 @@ const paymentMethods = computed(
 const visiblePaymentActions = computed(() =>
   PAYMENT_ACTIONS.filter(action => paymentMethods.value.includes(action.method))
 );
-const contractOptions = computed(() => [
-  { value: '', label: t('CONVERSATION_SIDEBAR.LEAF.ALL_CONTRACTS') },
-  ...contracts.value.map(contract => ({
+const contractOptions = computed(() =>
+  contracts.value.map(contract => ({
     value: contract.number,
     label: contract.label,
-  })),
-]);
+  }))
+);
 const showOnu = computed(
   () => connection.value?.technology === 'ftth' && !!connection.value?.onu
 );
@@ -99,6 +98,8 @@ const statusLabel = key => {
   switch (key) {
     case 'ativo':
       return t('CONVERSATION_SIDEBAR.LEAF.STATUS.ATIVO');
+    case 'bloqueado':
+      return t('CONVERSATION_SIDEBAR.LEAF.STATUS.BLOQUEADO');
     case 'inativo':
       return t('CONVERSATION_SIDEBAR.LEAF.STATUS.INATIVO');
     case 'suspenso':
@@ -118,6 +119,7 @@ const STATUS_COLORS = {
   offline: 'ruby',
   inativo: 'ruby',
   suspenso: 'amber',
+  bloqueado: 'amber',
 };
 
 const statusColor = status => STATUS_COLORS[status] || 'slate';
@@ -212,6 +214,10 @@ const paymentMessage = data => {
   }
 
   if (data.method === 'boleto') {
+    if (!data.boleto.pdf_base64) {
+      return { ...base, message: data.boleto.payment_url };
+    }
+
     const file = fileFromBase64(
       data.boleto.pdf_base64,
       'boleto.pdf',
@@ -236,6 +242,9 @@ const fetchInvoices = async () => {
   }
 };
 
+const loadCustomer = (contractNumber, signal) =>
+  LeafAPI.customer(props.conversationId, contractNumber, signal);
+
 const load = async () => {
   loadError.value = '';
   actionError.value = '';
@@ -247,12 +256,14 @@ const load = async () => {
   abortInvoices();
   try {
     const response = await runCustomer(signal =>
-      LeafAPI.customer(props.conversationId, signal)
+      loadCustomer(undefined, signal)
     );
     if (!response) return;
 
     lookup.value = response.data;
-    if (response.data.found) await fetchInvoices();
+    const firstContract = response.data.customer?.contracts?.[0]?.number || '';
+    selectedContract.value = firstContract;
+    if (response.data.found && firstContract) await fetchInvoices();
   } catch (error) {
     loadError.value = messageFor(error);
   }
@@ -260,17 +271,26 @@ const load = async () => {
 
 const refreshPanel = async () => {
   const response = await runCustomer(signal =>
-    LeafAPI.customer(props.conversationId, signal)
+    loadCustomer(selectedContract.value, signal)
   );
   if (response) lookup.value = response.data;
-  if (lookup.value?.found) await fetchInvoices();
+  if (lookup.value?.found && selectedContract.value) await fetchInvoices();
 };
 
-const onContractChange = value => {
+const onContractChange = async value => {
   selectedContract.value = value ?? '';
   selectedInvoiceId.value = '';
   invoicesPayload.value = null;
-  fetchInvoices();
+  abortInvoices();
+  try {
+    const response = await runCustomer(signal =>
+      loadCustomer(selectedContract.value, signal)
+    );
+    if (response) lookup.value = response.data;
+    if (selectedContract.value) await fetchInvoices();
+  } catch (error) {
+    actionError.value = messageFor(error);
+  }
 };
 
 const toggleInvoice = invoiceId => {
@@ -288,7 +308,8 @@ const sendPayment = async (invoice, method) => {
     const { data } = await LeafAPI.payment(
       props.conversationId,
       invoice.id,
-      method
+      method,
+      selectedContract.value
     );
     await store.dispatch('createPendingMessageAndSend', paymentMessage(data));
     selectedInvoiceId.value = '';
@@ -299,53 +320,14 @@ const sendPayment = async (invoice, method) => {
   }
 };
 
-const unblockNote = data => {
-  const status = statusLabel(data.connection.status);
-  if (!data.connection.onu) {
-    return t('CONVERSATION_SIDEBAR.LEAF.UNBLOCK_NOTE', {
-      name: data.name,
-      status,
-    });
-  }
-
-  return t('CONVERSATION_SIDEBAR.LEAF.UNBLOCK_NOTE_WITH_ONU', {
-    name: data.name,
-    status,
-    onu: statusLabel(data.connection.onu.status),
-  });
-};
-
-const applyUnblock = data => {
-  if (!lookup.value?.customer) return;
-
-  lookup.value = {
-    ...lookup.value,
-    customer: {
-      ...lookup.value.customer,
-      name: data.name,
-      connection: data.connection,
-    },
-  };
-};
-
 const unblockConnection = async () => {
   if (busy.value) return;
 
   actionError.value = '';
   unblocking.value = true;
   try {
-    const { data } = await LeafAPI.unblock(props.conversationId);
-    applyUnblock(data);
-    try {
-      await store.dispatch('createPendingMessageAndSend', {
-        conversationId: props.conversationId,
-        message: unblockNote(data),
-        private: true,
-        sender: pendingSender(),
-      });
-    } catch {
-      actionError.value = t('CONVERSATION_SIDEBAR.LEAF.NOTE_ERROR');
-    }
+    await LeafAPI.unblock(props.conversationId, selectedContract.value);
+    await refreshPanel();
   } catch (error) {
     actionError.value = messageFor(error);
   } finally {
@@ -359,7 +341,7 @@ const disconnectConnection = async () => {
   actionError.value = '';
   disconnecting.value = true;
   try {
-    await LeafAPI.disconnect(props.conversationId);
+    await LeafAPI.disconnect(props.conversationId, selectedContract.value);
     await refreshPanel();
   } catch (error) {
     actionError.value = messageFor(error);
@@ -374,7 +356,7 @@ const clearMac = async () => {
   actionError.value = '';
   clearingMac.value = true;
   try {
-    await LeafAPI.clearMac(props.conversationId);
+    await LeafAPI.clearMac(props.conversationId, selectedContract.value);
     await refreshPanel();
   } catch (error) {
     actionError.value = messageFor(error);
@@ -406,7 +388,15 @@ watch(() => props.conversationId, load, { immediate: true });
         <Icon icon="i-lucide-building-2 size-4 shrink-0 text-n-slate-11" />
         <span class="min-w-0 break-words">{{ customer.name }}</span>
       </div>
-      <section class="flex flex-col gap-2">
+      <Select
+        v-if="contracts.length"
+        full-width
+        :model-value="selectedContract"
+        :options="contractOptions"
+        :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.CONTRACT')"
+        @update:model-value="onContractChange"
+      />
+      <section v-if="connection" class="flex flex-col gap-2">
         <h4 class="m-0 text-xs font-medium text-n-slate-11">
           {{ $t('CONVERSATION_SIDEBAR.LEAF.CONNECTION') }}
         </h4>
@@ -414,11 +404,14 @@ watch(() => props.conversationId, load, { immediate: true });
           <Icon icon="i-lucide-user size-4 shrink-0 text-n-slate-11" />
           <span class="min-w-0 truncate">{{ connection.username }}</span>
         </div>
-        <Label
-          :label="statusLabel(connection.status)"
-          :color="connectionStatusColor"
-          compact
-        />
+        <div class="flex items-center gap-2 self-start">
+          <Icon icon="i-lucide-wifi size-4 shrink-0 text-n-slate-11" />
+          <Label
+            :label="statusLabel(connection.status)"
+            :color="connectionStatusColor"
+            compact
+          />
+        </div>
         <div v-if="connection.last_log" class="flex items-start gap-2">
           <Icon icon="i-lucide-scroll-text size-4 shrink-0 text-n-slate-11" />
           <span class="min-w-0 break-words">{{ connection.last_log }}</span>
@@ -433,6 +426,7 @@ watch(() => props.conversationId, load, { immediate: true });
           <span class="min-w-0 truncate">{{ connection.onu.serial }}</span>
         </div>
         <Label
+          class="self-start w-fit"
           :label="statusLabel(connection.onu.status)"
           :color="onuStatusColor"
           compact
@@ -450,11 +444,12 @@ watch(() => props.conversationId, load, { immediate: true });
         </div>
       </section>
       <Label
+        class="self-start w-fit"
         :label="statusLabel(customer.registration_status)"
         :color="registrationStatusColor"
         compact
       />
-      <div class="flex items-center gap-2">
+      <div v-if="connection" class="flex items-center gap-2">
         <Button
           v-if="canUnblock"
           v-tooltip.top-end="$t('CONVERSATION_SIDEBAR.LEAF.UNBLOCK')"
@@ -494,13 +489,6 @@ watch(() => props.conversationId, load, { immediate: true });
         <h4 class="m-0 text-xs font-medium text-n-slate-11">
           {{ $t('CONVERSATION_SIDEBAR.LEAF.INVOICES') }}
         </h4>
-        <Select
-          v-if="contracts.length"
-          :model-value="selectedContract"
-          :options="contractOptions"
-          :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.CONTRACT')"
-          @update:model-value="onContractChange"
-        />
         <Spinner
           v-if="invoicesPending && !openInvoices.length"
           class="mx-auto"

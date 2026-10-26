@@ -8,7 +8,12 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     hook = enabled_hook
     return if performed?
 
-    render json: Leaf::Client.build(hook).customer(conversation.contact)
+    contract_number = optional_contract_number
+    return if performed?
+
+    render json: Leaf::Client.build(hook).customer(conversation.contact, contract_number: contract_number)
+  rescue Leaf::Contract::Error => e
+    render_leaf_error(e)
   end
 
   def invoices
@@ -18,7 +23,7 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     hook = enabled_hook
     return if performed?
 
-    contract_number = contract_number_param
+    contract_number = required_contract_number
     return if performed?
 
     render json: Leaf::Client.build(hook).invoices(conversation.contact, contract_number: contract_number)
@@ -33,46 +38,30 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     hook = enabled_hook
     return if performed?
 
+    contract_number = required_contract_number
+    return if performed?
+
     invoice_id, payment_method = payment_arguments
-    render json: Leaf::Client.build(hook).payment(conversation.contact, invoice_id: invoice_id, method: payment_method)
+    render json: Leaf::Client.build(hook).payment(
+      conversation.contact,
+      contract_number: contract_number,
+      invoice_id: invoice_id,
+      method: payment_method
+    )
   rescue Leaf::Contract::Error => e
     render_leaf_error(e)
   end
 
   def unblock
-    conversation = conversation_from_params
-    return if performed?
-
-    hook = enabled_hook
-    return if performed?
-
-    render json: Leaf::Client.build(hook).unblock(conversation.contact)
-  rescue Leaf::Contract::Error => e
-    render_leaf_error(e)
+    perform_connection_action(:unblock)
   end
 
   def disconnect
-    conversation = conversation_from_params
-    return if performed?
-
-    hook = enabled_hook
-    return if performed?
-
-    render json: Leaf::Client.build(hook).disconnect(conversation.contact)
-  rescue Leaf::Contract::Error => e
-    render_leaf_error(e)
+    perform_connection_action(:disconnect)
   end
 
   def clear_mac
-    conversation = conversation_from_params
-    return if performed?
-
-    hook = enabled_hook
-    return if performed?
-
-    render json: Leaf::Client.build(hook).clear_mac(conversation.contact)
-  rescue Leaf::Contract::Error => e
-    render_leaf_error(e)
+    perform_connection_action(:clear_mac)
   end
 
   def test
@@ -85,6 +74,32 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
   end
 
   private
+
+  def perform_connection_action(action)
+    conversation = nil
+    conversation = conversation_from_params
+    return if performed?
+
+    hook = enabled_hook
+    return if performed?
+
+    contract_number = required_contract_number
+    return if performed?
+
+    payload, detail = Leaf::Client.build(hook).public_send(action, conversation.contact, contract_number: contract_number)
+    write_private_note(conversation, detail)
+    render json: payload
+  rescue Leaf::Contract::Error => e
+    write_private_note(conversation, e.detail_description)
+    render_leaf_error(e)
+  end
+
+  def write_private_note(conversation, detail)
+    text = detail.to_s
+    return if conversation.blank? || text.blank?
+
+    Messages::MessageBuilder.new(Current.user, conversation, { content: text, private: true }).perform
+  end
 
   def conversation_from_params
     conversation_id = params[:conversation_id]
@@ -104,10 +119,19 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     hook
   end
 
-  def contract_number_param
+  def optional_contract_number
     value = params[:contract_number]
     return if value.nil? || value == ''
-    return value if value.is_a?(String)
+    return value if value.is_a?(String) && value.match?(/\A[1-9]\d*\z/)
+
+    render_could_not_create_error('contract_number must be a string')
+    nil
+  end
+
+  def required_contract_number
+    value = optional_contract_number
+    return if performed?
+    return value if value.present?
 
     render_could_not_create_error('contract_number must be a string')
     nil
@@ -126,7 +150,7 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
 
   def invoice_id_param
     value = params[:invoice_id]
-    return value if value.is_a?(String) && value.present?
+    return value if value.is_a?(String) && value.match?(/\A[1-9]\d*\z/)
 
     raise Leaf::Contract::Error, 'unknown_invoice'
   end
