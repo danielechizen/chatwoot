@@ -336,3 +336,36 @@ leadsquared:
       'conversation_activity_score',
       'transcript_activity_score',
     ]
+leaf_admin:
+  id: leaf_admin
+  logo: leaf_admin.png
+  i18n_key: leaf_admin
+  hook_type: account
+  allow_multiple_hooks: false
+  settings_json_schema:
+    {
+      'type': 'object',
+      'properties':
+        {
+          'system_url': { 'type': 'string' },
+          'api_key': { 'type': 'string' },
+        },
+      'required': ['system_url', 'api_key'],
+      'additionalProperties': false,
+    }
+  settings_form_schema:
+    [
+      {
+        'label': 'URL do sistema',
+        'type': 'text',
+        'name': 'system_url',
+        'validation': 'required',
+      },
+      {
+        'label': 'Chave de integração',
+        'type': 'text',
+        'name': 'api_key',
+        'validation': 'required',
+      },
+    ]
+  visible_properties: ['system_url']

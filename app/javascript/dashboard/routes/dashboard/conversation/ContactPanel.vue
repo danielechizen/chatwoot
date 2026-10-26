@@ -25,6 +25,7 @@ import SidebarActionsHeader from 'dashboard/components-next/SidebarActionsHeader
 import LinearIssuesList from 'dashboard/components/widgets/conversation/linear/IssuesList.vue';
 import LinearSetupCTA from 'dashboard/components/widgets/conversation/linear/LinearSetupCTA.vue';
 import StripeCustomer from 'dashboard/components/widgets/conversation/StripeCustomer.vue';
+import LeafCustomerPanel from 'dashboard/components-next/leaf/LeafCustomerPanel.vue';
 
 const props = defineProps({
   conversationId: {
@@ -38,12 +39,23 @@ const props = defineProps({
 });
 
 const {
+  uiSettings,
   updateUISettings,
   isContactSidebarItemOpen,
   conversationSidebarItemsOrder,
   toggleSidebarUIState,
   isOnExpandedLayout,
 } = useUISettings();
+
+const isLeafCustomerOpen = computed(() => {
+  const value = uiSettings.value?.is_leaf_customer_open;
+  if (value === undefined || value === null) return true;
+  return value === true;
+});
+
+const toggleLeafCustomer = () => {
+  updateUISettings({ is_leaf_customer_open: !isLeafCustomerOpen.value });
+};
 
 const dragging = ref(false);
 const conversationSidebarItems = ref([]);
@@ -56,6 +68,13 @@ const shopifyIntegration = useFunctionGetter(
 const isShopifyFeatureEnabled = computed(
   () => shopifyIntegration.value.enabled
 );
+
+const leafIntegration = useFunctionGetter(
+  'integrations/getIntegration',
+  'leaf_admin'
+);
+
+const isLeafAdminEnabled = computed(() => leafIntegration.value.enabled);
 
 const { isCloudFeatureEnabled } = useAccount();
 
@@ -298,6 +317,21 @@ onMounted(() => {
               "
             >
               <ShopifyOrdersList :contact-id="contactId" />
+            </AccordionItem>
+          </div>
+          <div
+            v-else-if="element.name === 'leaf_customer' && isLeafAdminEnabled"
+          >
+            <AccordionItem
+              :title="$t('CONVERSATION_SIDEBAR.ACCORDION.LEAF_CUSTOMER')"
+              :is-open="isLeafCustomerOpen"
+              compact
+              @toggle="toggleLeafCustomer"
+            >
+              <LeafCustomerPanel
+                v-if="isLeafCustomerOpen"
+                :conversation-id="conversationId"
+              />
             </AccordionItem>
           </div>
           <div
