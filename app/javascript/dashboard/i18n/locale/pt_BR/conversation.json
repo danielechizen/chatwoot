@@ -550,6 +550,7 @@
       "INVOICES": "Títulos em aberto",
       "NO_INVOICES": "Nenhum título em aberto",
       "DUE_ON": "Vencimento {date}",
+      "CONTRACT_STATUS": "Situação Contrato",
       "MISSING_IDENTIFIER": "Informe o telefone ou o CPF/CNPJ do contato para consultar o cliente.",
       "NOT_FOUND": "Cliente não encontrado.",
       "ERROR": "Não foi possível carregar o cliente. Tente novamente.",
@@ -578,7 +579,9 @@
         "OFFLINE": "Offline",
         "LOS": "LOS",
         "DYING_GASP": "Dying gasp",
-        "UNKNOWN": "Desconhecido"
+        "UNKNOWN": "Desconhecido",
+        "PENDENTE": "Pendente",
+        "ATRASADA": "Atrasada"
       }
     }
   },

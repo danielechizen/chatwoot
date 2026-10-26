@@ -95,12 +95,17 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     contract_number = required_contract_number
     return if performed?
 
-    payload, detail = Leaf::Client.build(hook).public_send(action, conversation.contact, contract_number: contract_number)
-    write_private_note(conversation, detail)
+    payload = Leaf::Client.build(hook).public_send(action, conversation.contact, contract_number: contract_number)
+    write_private_note(conversation, action_note(action, 'success', payload[:name] || payload['name']))
     render json: payload
   rescue Leaf::Contract::Error => e
-    write_private_note(conversation, e.detail_description)
+    write_private_note(conversation, action_note(action, 'failure', e.name))
     render_leaf_error(e)
+  end
+
+  def action_note(action, outcome, name)
+    suffix = name.present? ? outcome : "#{outcome}_unnamed"
+    I18n.t("leaf.notes.#{action}.#{suffix}", name: name, locale: :pt_BR)
   end
 
   def write_private_note(conversation, detail)

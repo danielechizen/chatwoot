@@ -26,7 +26,7 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 - `custom/app/services/custom/branding.rb` — `Custom::Branding.apply!`
 - `custom/config/initializers/branding.rb` — applies branding once per process and prepends the plan reset hook
 - `custom/bin/check_seams.rb` — checks the fork seams after an upstream merge
-- `public/brand-assets/leaf/logo.svg`, `logo_dark.svg`, and `logo_thumbnail.svg` — Leaf Agent marks. The original files in `public/brand-assets/` stay untouched.
+- `public/brand-assets/leaf/logo.svg`, `logo_dark.svg`, `logo_thumbnail.svg`, and `favicon.svg` — Leaf Agent marks. The original files in `public/brand-assets/` and `public/favicon-*.png` stay untouched.
 - `custom/app/controllers/api/v1/accounts/integrations/leaf_controller.rb`
 - `custom/app/services/leaf/client.rb`
 - `custom/app/services/leaf/http_adapter.rb`
@@ -62,7 +62,9 @@ Customer lookup (`GET customer`) searches contracts by document digits, then pho
 
 Invoices (`GET invoices`) require `contract_number`. The server checks that id, then loads delayed billets (limit 5, due date ascending). `payment_methods` comes from that response (`pix`, `bankSlip`, `creditCard`). `POST payment` checks the billet id and the method, then returns PIX (`copy_paste`, `image_base64`), boleto (`pdf_base64` and/or `payment_url`), or card (`payment_url`).
 
-Unblock calls extend, disconnect calls disconnect with `force: false`, and clear MAC calls clear-mac. Each returns a small contract object. The controller writes a private note with `detailDescription` on success and on error, sent as the current user. The panel refreshes and does not write that note.
+Unblock calls extend, disconnect calls disconnect with `force: false`, and clear MAC calls clear-mac. Each returns a small contract object. The controller writes a private note in Portuguese for success and for failure, sent as the current user. The sentence names the customer, or the PPPoE login when the contract has no name. It does not include `detailDescription` or any other Leaf response text. The panel refreshes and does not write that note.
+
+Open invoices carry the billet `status`. `delayed` becomes `atrasada`. `pending` and any other still-open status on that list becomes `pendente`.
 
 `POST test` calls `GET /integrations/contracts?limit=1` and returns `{ "ok": true }` or 422 `invalid_credentials`. The request may include the system URL and API key currently in the form. A blank field falls back to the saved hook, so a test after save still uses both stored values. The live servlet sends `statusCode` and `detailCode` as names (`OK`, `ERROR`, `BAD_TOKEN`, `FORBIDDEN`); integer codes from the OpenAPI file are accepted too.
 
@@ -72,7 +74,7 @@ Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`
 
 ## Branding
 
-`Custom::Branding.apply!` writes `INSTALLATION_NAME` and `BRAND_NAME` when the stored value is blank, `Chatwoot`, or `Leaf`. The new value is `Leaf Agent`. Any other stored name stays. Logo paths are written only when blank or still the Chatwoot path. A later manual logo path stays.
+`Custom::Branding.apply!` writes `INSTALLATION_NAME` and `BRAND_NAME` when the stored value is blank, `Chatwoot`, or `Leaf`. The new value is `Leaf Agent`. Any other stored name stays. Logo paths are written only when blank or still the Chatwoot path. A later manual logo path stays. `FAVICON` is written when it is blank.
 
 | Key | Leaf Agent value | Values that get replaced |
 | --- | --- | --- |
@@ -81,14 +83,17 @@ Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`
 | `LOGO` | `/brand-assets/leaf/logo.svg` | blank or `/brand-assets/logo.svg` |
 | `LOGO_DARK` | `/brand-assets/leaf/logo_dark.svg` | blank or `/brand-assets/logo_dark.svg` |
 | `LOGO_THUMBNAIL` | `/brand-assets/leaf/logo_thumbnail.svg` | blank or `/brand-assets/logo_thumbnail.svg` |
+| `FAVICON` | `/brand-assets/leaf/favicon.svg` | blank |
 
 The boot initializer calls `apply!`. Saving a config clears `GlobalConfig` through the existing `after_commit`. If the database or the `installation_configs` table is missing (`db:create`), that boot call skips only `ActiveRecord::NoDatabaseError` and a missing-relation `ActiveRecord::StatementInvalid`. Other errors propagate.
 
 Asset precompile skips that boot call when the process is `rake` and ARGV includes `assets:precompile`, and does not query `InstallationConfig`.
 
-On the community plan, `Internal::ReconcilePlanConfigService#reconcile_premium_config` copies the Chatwoot premium defaults back. The prepended module calls `super`, then `Custom::Branding.apply!`, so the name becomes Leaf Agent again and the logos return to the Leaf paths. The product name is not copied into Vue.
+On the community plan, `Internal::ReconcilePlanConfigService#reconcile_premium_config` copies the Chatwoot premium defaults back. The prepended module calls `super`, then `Custom::Branding.apply!`, so the name becomes Leaf Agent again, the logos return to the Leaf paths, and a blank favicon is set to the Leaf SVG. The product name is not copied into Vue. The dashboard favicon link uses `FAVICON` when it is set, and the upstream PNG files otherwise.
 
-The widget seam is the literal `disableBranding: true` in `app/views/widgets/show.html.erb`.
+The Super Admin alert “Unauthorized premium changes detected” is `CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING`. Community reconcile sets it when an `enterprise/config/premium_installation_config.yml` value differs from the database. This fork’s boot write does that for `INSTALLATION_NAME`, `BRAND_NAME`, `LOGO`, `LOGO_DARK`, and `LOGO_THUMBNAIL`, because those are `Leaf Agent` and the `/brand-assets/leaf/` paths rather than the Chatwoot defaults. `FAVICON` is not in that premium list. SAML is not one of those configs, and this fork does not write `ENABLE_SAML_SSO_LOGIN` or turn on the account `saml` flag.
+
+After `super`, the prepended `perform` deletes that warning only when every drifted premium config equals the Leaf replacement. A real non-Leaf change, such as an installation name other than `Chatwoot`, `Leaf`, or `Leaf Agent`, still leaves the warning. On the community plan the same `perform` turns off an account `saml` flag that was already enabled. The Super Admin SAML card stays locked on the community plan. The `disable_branding` feature stays off. The widget seam is the literal `disableBranding: true` in `app/views/widgets/show.html.erb`.
 
 After every upstream merge, run:
 

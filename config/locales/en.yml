@@ -1109,3 +1109,20 @@ en:
         test_email:
           queued: 'Test email on its way to %{email}. Ask the user to check their inbox and spam folder.'
           subject: 'Test email from %{brand_name} support'
+  leaf:
+    notes:
+      unblock:
+        success: "Extension requested for %{name}'s connection."
+        failure: "Could not extend %{name}'s connection."
+        success_unnamed: 'Extension requested for the connection.'
+        failure_unnamed: 'Could not extend the connection.'
+      clear_mac:
+        success: "MAC clear requested for %{name}'s connection."
+        failure: "Could not clear the MAC for %{name}'s connection."
+        success_unnamed: 'MAC clear requested for the connection.'
+        failure_unnamed: 'Could not clear the MAC for the connection.'
+      disconnect:
+        success: "Disconnect requested for %{name}'s connection."
+        failure: "Could not disconnect %{name}'s connection."
+        success_unnamed: 'Disconnect requested for the connection.'
+        failure_unnamed: 'Could not disconnect the connection.'

@@ -10,7 +10,11 @@ checks = [
   ['app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue', 'leaf_customer'],
   ['app/views/widgets/show.html.erb', 'disableBranding: true'],
   ['public/brand-assets/leaf/logo.svg', '<svg'],
+  ['public/brand-assets/leaf/favicon.svg', '<svg'],
   ['custom/app/services/custom/branding.rb', 'INSTALLATION_NAME'],
+  ['custom/app/services/custom/branding.rb', '/brand-assets/leaf/favicon.svg'],
+  ['app/views/layouts/vueapp.html.erb', "['FAVICON']"],
+  ['custom/config/initializers/branding.rb', 'CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING'],
   ['custom/config/initializers/branding.rb', "File.basename($PROGRAM_NAME) == 'rake' && ARGV.any? { |arg| arg.include?('assets:precompile') }"]
 ]
 

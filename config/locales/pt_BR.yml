@@ -1092,3 +1092,20 @@ pt_BR:
         test_email:
           queued: 'O e-mail de teste está a caminho de %{email}. Peça ao usuário que verifique a caixa de entrada e a pasta de spam.'
           subject: 'E-mail de teste do suporte de %{brand_name}'
+  leaf:
+    notes:
+      unblock:
+        success: 'Prorrogação solicitada para a conexão de %{name}.'
+        failure: 'Não foi possível prorrogar a conexão de %{name}.'
+        success_unnamed: 'Prorrogação solicitada para a conexão.'
+        failure_unnamed: 'Não foi possível prorrogar a conexão.'
+      clear_mac:
+        success: 'Limpeza de MAC solicitada para a conexão de %{name}.'
+        failure: 'Não foi possível limpar o MAC da conexão de %{name}.'
+        success_unnamed: 'Limpeza de MAC solicitada para a conexão.'
+        failure_unnamed: 'Não foi possível limpar o MAC da conexão.'
+      disconnect:
+        success: 'Desconexão solicitada para a conexão de %{name}.'
+        failure: 'Não foi possível desconectar a conexão de %{name}.'
+        success_unnamed: 'Desconexão solicitada para a conexão.'
+        failure_unnamed: 'Não foi possível desconectar a conexão.'

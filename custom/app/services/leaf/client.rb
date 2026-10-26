@@ -55,26 +55,29 @@ class Leaf::Client
 
   def unblock(contact, contract_number:)
     contract = owned_contract(contact, contract_number)
-    envelope = @adapter.extend_connection(required_connection_id(contract))
-    [
-      Leaf::Contract.unblock(name: contract['name'].to_s, connection: connection_payload(contract)),
-      envelope['detailDescription']
-    ]
+    with_connection_name(contract) do
+      @adapter.extend_connection(required_connection_id(contract))
+      Leaf::Contract.unblock(name: subject_name(contract), connection: connection_payload(contract))
+    end
   end
 
   def disconnect(contact, contract_number:)
     contract = owned_contract(contact, contract_number)
-    envelope = @adapter.disconnect(required_connection_id(contract))
-    [
-      Leaf::Contract.disconnect(name: contract['name'].to_s, connection: connection_payload(contract, offline: true)),
-      envelope['detailDescription']
-    ]
+    with_connection_name(contract) do
+      @adapter.disconnect(required_connection_id(contract))
+      Leaf::Contract.disconnect(
+        name: subject_name(contract),
+        connection: connection_payload(contract, offline: true)
+      )
+    end
   end
 
   def clear_mac(contact, contract_number:)
     contract = owned_contract(contact, contract_number)
-    envelope = @adapter.clear_mac(required_connection_id(contract))
-    [Leaf::Contract.clear_mac(name: contract['name'].to_s), envelope['detailDescription']]
+    with_connection_name(contract) do
+      @adapter.clear_mac(required_connection_id(contract))
+      Leaf::Contract.clear_mac(name: subject_name(contract))
+    end
   end
 
   def test_connection
@@ -245,9 +248,14 @@ class Leaf::Client
         'id' => row['id'].to_s,
         'description' => row['description'].presence || row['name'].to_s,
         'amount_cents' => amount_cents(row['amount']),
-        'due_on' => row['dueDate'].to_s
+        'due_on' => row['dueDate'].to_s,
+        'status' => invoice_status(row['status'])
       }
     end
+  end
+
+  def invoice_status(status)
+    enum_name(status) == 'delayed' ? 'atrasada' : 'pendente'
   end
 
   def amount_cents(amount)
@@ -281,6 +289,24 @@ class Leaf::Client
     when 'card'
       { payment_url: body['url'].presence || body.dig('params', 'url') }
     end
+  end
+
+  def subject_name(contract)
+    contract['name'].presence || connection_login(contract)
+  end
+
+  def connection_login(contract)
+    return if contract['connectionId'].blank?
+
+    connection_row(contract)&.[]('pppoeLogin').presence
+  rescue Leaf::Contract::Error
+    nil
+  end
+
+  def with_connection_name(contract)
+    yield
+  rescue Leaf::Contract::Error => error
+    raise error.with_name(subject_name(contract))
   end
 
   def digits(value)

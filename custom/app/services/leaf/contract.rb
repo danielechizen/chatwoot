@@ -3,6 +3,7 @@ class Leaf::Contract
   CONNECTION_STATUSES = %w[online offline].freeze
   ONU_STATUSES = %w[online offline].freeze
   PAYMENT_METHODS = %w[pix boleto card].freeze
+  INVOICE_STATUSES = %w[pendente atrasada].freeze
   MATCHED_BY = %w[cpf_cnpj phone].freeze
 
   class << self
@@ -35,24 +36,22 @@ class Leaf::Contract
       { method: method_name, invoice_id: required_string(invoice_id) }.merge(payment_body(method_name, details))
     end
 
-    def unblock(name:, connection:)
-      {
-        unblocked: true,
-        name: required_string(name),
-        connection: connection_attributes(connection)
-      }
+    def unblock(name: nil, connection:)
+      payload = { unblocked: true, connection: connection_attributes(connection) }
+      payload[:name] = required_string(name) if name.present?
+      payload
     end
 
-    def disconnect(name:, connection:)
-      {
-        disconnected: true,
-        name: required_string(name),
-        connection: connection_attributes(connection)
-      }
+    def disconnect(name: nil, connection:)
+      payload = { disconnected: true, connection: connection_attributes(connection) }
+      payload[:name] = required_string(name) if name.present?
+      payload
     end
 
-    def clear_mac(name:)
-      { mac_cleared: true, name: required_string(name) }
+    def clear_mac(name: nil)
+      payload = { mac_cleared: true }
+      payload[:name] = required_string(name) if name.present?
+      payload
     end
 
     def connection_test
@@ -161,12 +160,15 @@ class Leaf::Contract
     end
 
     def invoice_attributes(invoice)
-      {
+      attributes = {
         id: required_string(value(invoice, :id)),
         description: required_string(value(invoice, :description)),
         amount_cents: required_integer(value(invoice, :amount_cents)),
         due_on: required_string(value(invoice, :due_on))
       }
+      status = value(invoice, :status)
+      attributes[:status] = one_of(status, INVOICE_STATUSES) if status.present?
+      attributes
     end
 
     def one_of(candidate, allowed)
@@ -209,11 +211,16 @@ class Leaf::Contract
 end
 
 class Leaf::Contract::Error < StandardError
-  attr_reader :code, :detail_description
+  attr_reader :code, :detail_description, :name
 
-  def initialize(code, detail_description = nil)
+  def initialize(code, detail_description = nil, name: nil)
     @code = code
     @detail_description = detail_description
+    @name = name
     super(detail_description.presence || code)
+  end
+
+  def with_name(name)
+    self.class.new(code, nil, name: name.presence)
   end
 end

@@ -1,7 +1,32 @@
 module Custom::ReapplyBranding
+  def perform
+    branding_only = community_plan? && Custom::Branding.drift_is_leaf_only?
+    super
+    return unless community_plan?
+
+    disable_saml_on_community_plan
+    return unless branding_only
+
+    Redis::Alfred.delete(Redis::Alfred::CHATWOOT_INSTALLATION_CONFIG_RESET_WARNING)
+  end
+
   def reconcile_premium_config
     super
     Custom::Branding.apply!
+  end
+
+  private
+
+  def community_plan?
+    ChatwootHub.pricing_plan == 'community'
+  end
+
+  def disable_saml_on_community_plan
+    Account.find_each do |account|
+      next unless account.feature_enabled?('saml')
+
+      account.disable_features!('saml')
+    end
   end
 end
 

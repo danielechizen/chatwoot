@@ -550,6 +550,7 @@
       "INVOICES": "Open invoices",
       "NO_INVOICES": "No open invoices",
       "DUE_ON": "Due {date}",
+      "CONTRACT_STATUS": "Contract status",
       "MISSING_IDENTIFIER": "Add a phone number or CPF/CNPJ to this contact to look up the customer.",
       "NOT_FOUND": "Customer not found.",
       "ERROR": "Could not load the customer. Try again.",
@@ -578,7 +579,9 @@
         "OFFLINE": "Offline",
         "LOS": "LOS",
         "DYING_GASP": "Dying gasp",
-        "UNKNOWN": "Unknown"
+        "UNKNOWN": "Unknown",
+        "PENDENTE": "Pending",
+        "ATRASADA": "Overdue"
       }
     }
   },

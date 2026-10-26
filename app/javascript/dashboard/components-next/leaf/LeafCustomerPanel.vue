@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAbortableRequest } from 'dashboard/composables/useAbortableRequest';
 import LeafAPI from 'dashboard/api/leaf';
+import { createPendingMessage } from 'dashboard/helper/commons';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import Label from 'dashboard/components-next/label/Label.vue';
@@ -108,6 +109,10 @@ const statusLabel = key => {
       return t('CONVERSATION_SIDEBAR.LEAF.STATUS.ONLINE');
     case 'offline':
       return t('CONVERSATION_SIDEBAR.LEAF.STATUS.OFFLINE');
+    case 'pendente':
+      return t('CONVERSATION_SIDEBAR.LEAF.STATUS.PENDENTE');
+    case 'atrasada':
+      return t('CONVERSATION_SIDEBAR.LEAF.STATUS.ATRASADA');
     default:
       return t('CONVERSATION_SIDEBAR.LEAF.STATUS.UNKNOWN');
   }
@@ -137,6 +142,8 @@ const onuStatusColor = computed(() => {
 const registrationStatusColor = computed(() =>
   statusColor(customer.value?.registration_status)
 );
+
+const invoiceStatusColor = status => (status === 'atrasada' ? 'ruby' : 'blue');
 
 const messageFor = error => {
   const code = error?.response?.data?.error;
@@ -201,17 +208,17 @@ const pendingSender = () => ({
   thumbnail: currentUser.value?.avatar_url,
 });
 
-const paymentMessage = data => {
-  const base = {
-    conversationId: props.conversationId,
-    private: false,
-    sender: pendingSender(),
-  };
+const messageBase = () => ({
+  conversationId: props.conversationId,
+  private: false,
+  sender: pendingSender(),
+});
 
-  if (data.method === 'pix') {
-    const file = fileFromBase64(data.pix.image_base64, 'pix.png', 'image/png');
-    return { ...base, message: data.pix.copy_paste, files: [file], file };
-  }
+const sendChatMessage = data =>
+  store.dispatch('sendMessageWithData', createPendingMessage(data));
+
+const paymentMessage = data => {
+  const base = messageBase();
 
   if (data.method === 'boleto') {
     if (!data.boleto.pdf_base64) {
@@ -311,7 +318,25 @@ const sendPayment = async (invoice, method) => {
       method,
       selectedContract.value
     );
-    await store.dispatch('createPendingMessageAndSend', paymentMessage(data));
+    if (data.method === 'pix') {
+      await sendChatMessage({
+        ...messageBase(),
+        message: data.pix.copy_paste,
+      });
+      const file = fileFromBase64(
+        data.pix.image_base64,
+        'pix.png',
+        'image/png'
+      );
+      await sendChatMessage({
+        ...messageBase(),
+        message: '',
+        files: [file],
+        file,
+      });
+    } else {
+      await store.dispatch('createPendingMessageAndSend', paymentMessage(data));
+    }
     selectedInvoiceId.value = '';
   } catch (error) {
     actionError.value = messageFor(error);
@@ -443,12 +468,17 @@ watch(() => props.conversationId, load, { immediate: true });
           <span class="min-w-0 break-words">{{ connection.onu.error }}</span>
         </div>
       </section>
-      <Label
-        class="self-start w-fit"
-        :label="statusLabel(customer.registration_status)"
-        :color="registrationStatusColor"
-        compact
-      />
+      <div class="flex flex-wrap items-center gap-2 self-start">
+        <span class="text-xs text-n-slate-11">
+          {{ $t('CONVERSATION_SIDEBAR.LEAF.CONTRACT_STATUS') }}
+        </span>
+        <Label
+          class="w-fit"
+          :label="statusLabel(customer.registration_status)"
+          :color="registrationStatusColor"
+          compact
+        />
+      </div>
       <div v-if="connection" class="flex items-center gap-2">
         <Button
           v-if="canUnblock"
@@ -508,27 +538,41 @@ watch(() => props.conversationId, load, { immediate: true });
           :key="invoice.id"
           class="flex flex-col gap-2 border-b border-n-weak last:border-b-0"
         >
-          <button
-            type="button"
-            class="flex w-full items-start justify-between gap-3 text-start"
+          <div
+            role="button"
+            tabindex="0"
+            class="flex w-full cursor-pointer items-start justify-between gap-3 text-start"
             @click="toggleInvoice(invoice.id)"
+            @keydown.enter.prevent="toggleInvoice(invoice.id)"
+            @keydown.space.prevent="toggleInvoice(invoice.id)"
           >
             <span class="flex flex-col gap-0.5 min-w-0">
               <span class="font-medium truncate">
                 {{ invoice.description }}
               </span>
-              <span class="text-xs text-n-slate-11">
-                {{
-                  $t('CONVERSATION_SIDEBAR.LEAF.DUE_ON', {
-                    date: formatDueOn(invoice.due_on),
-                  })
-                }}
+              <span
+                class="flex flex-wrap items-center gap-2 text-xs text-n-slate-11"
+              >
+                <span>
+                  {{
+                    $t('CONVERSATION_SIDEBAR.LEAF.DUE_ON', {
+                      date: formatDueOn(invoice.due_on),
+                    })
+                  }}
+                </span>
+                <Label
+                  v-if="invoice.status"
+                  class="w-fit"
+                  :label="statusLabel(invoice.status)"
+                  :color="invoiceStatusColor(invoice.status)"
+                  compact
+                />
               </span>
             </span>
             <span class="shrink-0 font-medium tabular-nums">
               {{ formatAmount(invoice.amount_cents) }}
             </span>
-          </button>
+          </div>
           <div
             v-if="selectedInvoiceId === invoice.id"
             class="flex flex-wrap gap-2"
