@@ -340,8 +340,8 @@ leaf_admin:
   id: leaf_admin
   logo: leaf_admin.png
   i18n_key: leaf_admin
-  hook_type: account
-  allow_multiple_hooks: false
+  hook_type: inbox
+  allow_multiple_hooks: true
   settings_json_schema:
     {
       'type': 'object',

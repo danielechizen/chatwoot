@@ -14,20 +14,24 @@ class Leaf::Client
     @adapter = adapter
   end
 
-  def customer(contact, contract_number: nil)
+  def customer(contact, contract_number: nil, customer_id: nil)
     contracts, matched_by = contracts_for(contact)
     return Leaf::Contract.missing_identifier if matched_by.nil?
     return Leaf::Contract.not_found if contracts.empty?
 
-    contract = select_contract(contracts, contract_number)
+    group = selected_group(contracts, customer_id)
+    rows = group[:contracts]
+    contract = select_contract(rows, contract_number)
     Leaf::Contract.customer(
       matched_by: matched_by,
-      customer: customer_payload(contract, contracts, connection_row(contract))
+      customer_id: group[:id],
+      customers: customer_options(contracts),
+      customer: customer_payload(contract, rows, connection_row(contract), group[:name])
     )
   end
 
-  def invoices(contact, contract_number:)
-    contract = owned_contract(contact, contract_number)
+  def invoices(contact, contract_number:, customer_id: nil)
+    contract = owned_contract(contact, contract_number, customer_id: customer_id)
     body = @adapter.delayed_billets(contract['id'])
     Leaf::Contract.invoices(
       contract_number: contract['id'].to_s,
@@ -36,8 +40,8 @@ class Leaf::Client
     )
   end
 
-  def payment(contact, contract_number:, invoice_id:, method:)
-    contract = owned_contract(contact, contract_number)
+  def payment(contact, contract_number:, invoice_id:, method:, customer_id: nil)
+    contract = owned_contract(contact, contract_number, customer_id: customer_id)
     body = @adapter.delayed_billets(contract['id'])
     methods = payment_method_names(body['paymentMethods'])
     raise Leaf::Contract::Error, 'unknown_method' unless methods.include?(method)
@@ -53,16 +57,16 @@ class Leaf::Client
     )
   end
 
-  def unblock(contact, contract_number:)
-    contract = owned_contract(contact, contract_number)
+  def unblock(contact, contract_number:, customer_id: nil)
+    contract = owned_contract(contact, contract_number, customer_id: customer_id)
     with_connection_name(contract) do
       @adapter.extend_connection(required_connection_id(contract))
       Leaf::Contract.unblock(name: subject_name(contract), connection: connection_payload(contract))
     end
   end
 
-  def disconnect(contact, contract_number:)
-    contract = owned_contract(contact, contract_number)
+  def disconnect(contact, contract_number:, customer_id: nil)
+    contract = owned_contract(contact, contract_number, customer_id: customer_id)
     with_connection_name(contract) do
       @adapter.disconnect(required_connection_id(contract))
       Leaf::Contract.disconnect(
@@ -72,8 +76,8 @@ class Leaf::Client
     end
   end
 
-  def clear_mac(contact, contract_number:)
-    contract = owned_contract(contact, contract_number)
+  def clear_mac(contact, contract_number:, customer_id: nil)
+    contract = owned_contract(contact, contract_number, customer_id: customer_id)
     with_connection_name(contract) do
       @adapter.clear_mac(required_connection_id(contract))
       Leaf::Contract.clear_mac(name: subject_name(contract))
@@ -105,16 +109,99 @@ class Leaf::Client
     [[], document ? 'cpf_cnpj' : 'phone']
   end
 
-  def owned_contract(contact, contract_number)
+  def owned_contract(contact, contract_number, customer_id: nil)
     raise Leaf::Contract::Error, 'not_found' if contract_number.blank?
 
     contracts, matched_by = contracts_for(contact)
     raise Leaf::Contract::Error, 'missing_identifier' if matched_by.nil?
 
-    found = Array(contracts).find { |item| item['id'].to_s == contract_number.to_s }
+    rows = customer_id.present? ? selected_group(contracts, customer_id)[:contracts] : Array(contracts)
+    found = rows.find { |item| item['id'].to_s == contract_number.to_s }
     raise Leaf::Contract::Error, 'not_found' unless found
 
     found
+  end
+
+  def selected_group(contracts, customer_id)
+    groups = group_contracts(contracts)
+    raise Leaf::Contract::Error, 'not_found' if groups.empty?
+
+    return groups.first if customer_id.blank?
+
+    found = groups.find { |group| group[:id] == customer_id.to_s }
+    raise Leaf::Contract::Error, 'not_found' unless found
+
+    found
+  end
+
+  def customer_options(contracts)
+    groups = group_contracts(contracts)
+    return if groups.size < 2
+
+    groups.map { |group| { id: group[:id], name: group[:name] } }
+  end
+
+  def group_contracts(contracts)
+    ordered = []
+    index = {}
+    contracts.each do |contract|
+      key = group_key(contract)
+      unless index.key?(key)
+        index[key] = ordered.length
+        ordered << { id: group_public_id(contract, key), name: group_name(contract), contracts: [] }
+      end
+      ordered[index[key]][:contracts] << contract
+    end
+    ordered
+  end
+
+  def group_key(contract)
+    external = external_customer_id(contract)
+    return "ext:#{external}" if external.present?
+
+    document = contract_document(contract)
+    name = stripped_name(contract['name'])
+    return "doc:#{document}|#{name}" if document.present? && name.present?
+    return "name:#{name}" if name.present?
+
+    "row:#{contract['id']}"
+  end
+
+  def external_customer_id(contract)
+    [
+      contract['customerId'],
+      contract['clientId'],
+      contract.dig('customer', 'id'),
+      contract.dig('customer', 'customerId')
+    ].each do |value|
+      next unless value.is_a?(String) || value.is_a?(Numeric)
+
+      text = value.to_s.strip
+      return text if text.present?
+    end
+    nil
+  end
+
+  def contract_document(contract)
+    raw = contract['document'].presence ||
+          contract['cpfCnpj'].presence ||
+          contract['cpf_cnpj'].presence ||
+          contract.dig('customer', 'document').presence
+    digits(raw)
+  end
+
+  def stripped_name(name)
+    name.to_s.gsub(/\s+/, ' ').strip
+  end
+
+  def group_name(contract)
+    stripped_name(contract['name']).presence || contract['id'].to_s
+  end
+
+  def group_public_id(contract, key)
+    return key if key.match?(/\A[[:print:]]{1,200}\z/)
+
+    "row:#{contract['id']}"
   end
 
   def select_contract(contracts, contract_number)
@@ -133,9 +220,9 @@ class Leaf::Client
     connection_id
   end
 
-  def customer_payload(contract, contracts, row)
+  def customer_payload(contract, contracts, row, name = nil)
     payload = {
-      'name' => contract['name'],
+      'name' => name.presence || group_name(contract),
       'registration_status' => registration_status(contract['status']),
       'contracts' => contracts.map { |item| contract_summary(item) }
     }

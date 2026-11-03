@@ -5,13 +5,20 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     conversation = conversation_from_params
     return if performed?
 
-    hook = enabled_hook
+    hook = inbox_hook(conversation)
     return if performed?
 
     contract_number = optional_contract_number
     return if performed?
 
-    render json: Leaf::Client.build(hook).customer(conversation.contact, contract_number: contract_number)
+    customer_id = optional_customer_id
+    return if performed?
+
+    render json: Leaf::Client.build(hook).customer(
+      conversation.contact,
+      contract_number: contract_number,
+      customer_id: customer_id
+    )
   rescue Leaf::Contract::Error => e
     render_leaf_error(e)
   end
@@ -20,13 +27,20 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     conversation = conversation_from_params
     return if performed?
 
-    hook = enabled_hook
+    hook = inbox_hook(conversation)
     return if performed?
 
     contract_number = required_contract_number
     return if performed?
 
-    render json: Leaf::Client.build(hook).invoices(conversation.contact, contract_number: contract_number)
+    customer_id = optional_customer_id
+    return if performed?
+
+    render json: Leaf::Client.build(hook).invoices(
+      conversation.contact,
+      contract_number: contract_number,
+      customer_id: customer_id
+    )
   rescue Leaf::Contract::Error => e
     render_leaf_error(e)
   end
@@ -35,16 +49,20 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     conversation = conversation_from_params
     return if performed?
 
-    hook = enabled_hook
+    hook = inbox_hook(conversation)
     return if performed?
 
     contract_number = required_contract_number
+    return if performed?
+
+    customer_id = optional_customer_id
     return if performed?
 
     invoice_id, payment_method = payment_arguments
     render json: Leaf::Client.build(hook).payment(
       conversation.contact,
       contract_number: contract_number,
+      customer_id: customer_id,
       invoice_id: invoice_id,
       method: payment_method
     )
@@ -65,7 +83,7 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
   end
 
   def test
-    hook = enabled_hook
+    hook = credential_hook
     return if performed?
 
     system_url = optional_string_param(:system_url)
@@ -89,13 +107,21 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     conversation = conversation_from_params
     return if performed?
 
-    hook = enabled_hook
+    hook = inbox_hook(conversation)
     return if performed?
 
     contract_number = required_contract_number
     return if performed?
 
-    payload = Leaf::Client.build(hook).public_send(action, conversation.contact, contract_number: contract_number)
+    customer_id = optional_customer_id
+    return if performed?
+
+    payload = Leaf::Client.build(hook).public_send(
+      action,
+      conversation.contact,
+      contract_number: contract_number,
+      customer_id: customer_id
+    )
     write_private_note(conversation, action_note(action, 'success', payload[:name] || payload['name']))
     render json: payload
   rescue Leaf::Contract::Error => e
@@ -127,10 +153,25 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     conversation
   end
 
-  def enabled_hook
-    hook = Current.account.hooks.find_by(app_id: APP_ID, status: :enabled)
+  def credential_hook
+    hook = Current.account.hooks.where(app_id: APP_ID, status: :enabled).order(:id).first
     render json: { error: 'leaf_admin_not_enabled' }, status: :unprocessable_entity if hook.blank?
     hook
+  end
+
+  def inbox_hook(conversation)
+    hook = Current.account.hooks.find_by(app_id: APP_ID, status: :enabled, inbox_id: conversation.inbox_id)
+    render json: { error: 'leaf_admin_not_enabled' }, status: :unprocessable_entity if hook.blank?
+    hook
+  end
+
+  def optional_customer_id
+    value = params[:customer_id]
+    return if value.nil? || value == ''
+    return value if value.is_a?(String) && value.match?(/\A[[:print:]]{1,200}\z/)
+
+    render_could_not_create_error('customer_id must be a string')
+    nil
   end
 
   def optional_string_param(key)

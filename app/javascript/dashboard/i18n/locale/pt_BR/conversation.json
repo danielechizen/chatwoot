@@ -542,9 +542,11 @@
     },
     "LEAF": {
       "NAME": "Nome / razão social",
+      "CUSTOMER": "Cadastro",
       "CONNECTION": "Conexão",
       "ONU": "ONU",
-      "RX": "Sinal RX",
+      "ONU_STATUS": "Situação da ONU",
+      "RX": "Sinal",
       "RX_VALUE": "{value} dBm",
       "CONTRACT": "Contrato",
       "INVOICES": "Títulos em aberto",

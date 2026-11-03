@@ -15,12 +15,15 @@ class Leaf::Contract
       { found: false, reason: 'not_found' }
     end
 
-    def customer(matched_by:, customer:)
-      {
+    def customer(matched_by:, customer:, customer_id: nil, customers: nil)
+      payload = {
         found: true,
         matched_by: one_of(matched_by, MATCHED_BY),
         customer: customer_attributes(customer)
       }
+      payload[:customer_id] = required_string(customer_id) if customer_id.present?
+      payload[:customers] = customer_option_list(customers) if customers.present?
+      payload
     end
 
     def invoices(contract_number: nil, payment_methods:, open_invoices:)
@@ -88,6 +91,19 @@ class Leaf::Contract
 
     def card_attributes(details)
       { payment_url: required_string(value(details, :payment_url)) }
+    end
+
+    def customer_option_list(list)
+      raise ArgumentError, 'invalid leaf contract value' unless list.is_a?(Array) && list.any?
+
+      list.map { |item| customer_option(item) }
+    end
+
+    def customer_option(item)
+      {
+        id: required_string(value(item, :id)),
+        name: required_string(value(item, :name))
+      }
     end
 
     def customer_attributes(customer)

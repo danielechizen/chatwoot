@@ -542,9 +542,11 @@
     },
     "LEAF": {
       "NAME": "Name / company",
+      "CUSTOMER": "Customer record",
       "CONNECTION": "Connection",
       "ONU": "ONU",
-      "RX": "RX signal",
+      "ONU_STATUS": "ONU status",
+      "RX": "Signal",
       "RX_VALUE": "{value} dBm",
       "CONTRACT": "Contract",
       "INVOICES": "Open invoices",

@@ -62,6 +62,8 @@
     },
     "LEAF": {
       "SYSTEM_URL": "URL do sistema",
+      "INBOXES": "Caixas de entrada",
+      "INBOXES_PLACEHOLDER": "Selecione as caixas de entrada",
       "API_KEY": "Chave de integração",
       "API_KEY_PLACEHOLDER": "Deixe em branco para manter a chave atual",
       "SAVE": "Salvar",

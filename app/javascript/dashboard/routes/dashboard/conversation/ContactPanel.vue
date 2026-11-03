@@ -74,7 +74,15 @@ const leafIntegration = useFunctionGetter(
   'leaf_admin'
 );
 
-const isLeafAdminEnabled = computed(() => leafIntegration.value.enabled);
+const isLeafAdminEnabled = computed(() => {
+  const inboxId = Number(props.inboxId);
+  if (!Number.isInteger(inboxId)) return false;
+
+  return (leafIntegration.value?.hooks || []).some(hook => {
+    const enabled = hook.status === true || hook.status === 'enabled';
+    return enabled && Number(hook.inbox?.id) === inboxId;
+  });
+});
 
 const { isCloudFeatureEnabled } = useAccount();
 

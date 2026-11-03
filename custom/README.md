@@ -8,13 +8,13 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 - `app/views/widgets/show.html.erb` — `disableBranding: true`. The widget hides the Chatwoot mark without turning on the `disable_branding` feature. The help center footer is unchanged.
 - `config/initializers/01_inject_enterprise_edition_module.rb` — `const_get_maybe_false` must return nil, not false, when the receiver is not a module or the constant is missing. `&&` used to return boolean false, and the next lookup called `const_defined?` on that false. `const_defined?(name, false)` does not trigger Zeitwerk, so `Enterprise` can be missing at that moment too.
 - `config/routes.rb` — Leaf routes under `integrations/leaf`: `GET customer`, `GET invoices`, `POST payment`, `POST unblock`, `POST disconnect`, `POST clear_mac`, `POST test`.
-- `config/integration/apps.yml` — `leaf_admin` catalog entry. `visible_properties` stays `system_url` only, so the API key is never returned to the browser.
-- `app/controllers/api/v1/accounts/integrations/hooks_controller.rb` — on `PATCH` for `leaf_admin`, a blank `api_key` keeps the stored key. A new key replaces it.
+- `config/integration/apps.yml` — `leaf_admin` catalog entry, `hook_type: inbox`, `allow_multiple_hooks: true`. `visible_properties` stays `system_url` only, so the API key is never returned to the browser.
+- `app/controllers/api/v1/accounts/integrations/hooks_controller.rb` — on `PATCH` for `leaf_admin`, `inbox_ids` must list one or more inboxes of the account. A blank `api_key` keeps the stored key. The selected inboxes are the enabled hooks.
 - `config/locales/en.yml` — English `integration_apps.leaf_admin` copy.
 - `config/locales/pt_BR.yml` — Portuguese `integration_apps.leaf_admin` copy.
 - `app/javascript/dashboard/composables/useUISettings.js` — `leaf_customer` is the first default sidebar item. A saved order that omits it gets the item inserted at the front. The contact sidebar is open when `is_contact_sidebar_open` is unset, and a saved `false` stays closed.
-- `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue` — one accordion, shown when the `leaf_admin` integration is enabled. The accordion is open when `is_leaf_customer_open` is unset.
-- `app/javascript/dashboard/routes/dashboard/settings/integrations/LeafHookSettings.vue` — edits the saved system URL and API key, and tests the connection.
+- `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue` — one accordion, shown when the conversation inbox is one of the enabled `leaf_admin` inbox hooks. The accordion is open when `is_leaf_customer_open` is unset.
+- `app/javascript/dashboard/routes/dashboard/settings/integrations/LeafHookSettings.vue` — edits the saved system URL, API key, and required inbox selection, and tests the connection.
 - `app/javascript/dashboard/i18n/locale/en/conversation.json` — English sidebar strings.
 - `app/javascript/dashboard/i18n/locale/pt_BR/conversation.json` — Portuguese sidebar strings.
 - `public/dashboard/images/integrations/leaf_admin.png` — light logo.
@@ -56,7 +56,7 @@ Public client methods return `Leaf::Contract` hashes only. Omit a key when the a
 
 `Leaf::HttpAdapter` calls `system_url` + `/api/v2` with header `x-auth-header`. TLS verification is off only for those requests (`verify: false`), and they do not follow redirects. Other Chatwoot HTTP clients keep verification on. Each Leaf request, including the settings test, is logged at debug with the method, URL, HTTP status, `statusCode`, `detailCode`, and `detailDescription`. The log does not include the API key or `x-auth-header`.
 
-Customer lookup (`GET customer`) searches contracts by document digits, then phone digits. It returns `found` plus `customer`, or HTTP 200 `found: false` with `reason` `missing_identifier` or `not_found`. `customer` has `name`, `registration_status` (`active` → `ativo`, `blocked` → `bloqueado`), `contracts` (`number`, `label`), and `connection` when the contract has a `connectionId`. A blank `contract_number` uses the first contract. An id that is not in that contact's list is 422 `not_found`.
+Customer lookup (`GET customer`) searches contracts by document digits, then phone digits. Rows are grouped into cadastros: an explicit `customerId`, `clientId`, or `customer.id` when present, otherwise document digits plus the name, otherwise the name, and a blank name stays its own row. The response does not merge those cadastros into one customer. It returns `found`, `customer_id`, and `customer` for the selected group, plus `customers` (`id`, `name`) when more than one cadastro matches. `customer` has `name`, `registration_status` (`active` → `ativo`, `blocked` → `bloqueado`), that cadastro's `contracts` (`number`, `label`), and `connection` for the selected contract when it has a `connectionId`. A blank `contract_number` uses the first contract of that cadastro. Pass `customer_id` on customer, invoices, payment, unblock, disconnect, and clear MAC so only that cadastro's contracts match. An unknown id is 422 `not_found`.
 
 `connection.username` is the PPPoE login. `blocked` follows the contract status. `last_log` is `auth.message` when present. ONU is included only for `ftth` when `gpon` has a serial and status: optional `rx_dbm`, and `error` when offline and the alarm is not `ND`. Without `connectionId`, the panel hides the connection, the ONU, and the three buttons.
 
@@ -70,7 +70,9 @@ Open invoices carry the billet `status`. `delayed` becomes `atrasada`. `pending`
 
 Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`, `unknown_invoice`, `missing_identifier`, `not_found`, `invalid_credentials`, `leaf_request_failed`. A `contract_number` that is not a digit string is also 422.
 
-`Leaf::MockAdapter` stays in the repo and is not used for an enabled hook. Its cache, when the class is used directly, still lives in `Rails.cache`. No migration.
+`Leaf::MockAdapter` stays in the repo and is not used for an enabled hook. Its cache, when the class is used directly, still lives in `Rails.cache`.
+
+`leaf_admin` is an inbox hook and allows one hook per inbox, sharing `system_url` and `api_key`. The settings form requires at least one inbox. The sidebar and the Leaf API run only when the conversation inbox is one of those hooks. `POST test` still uses any enabled Leaf hook for stored credentials. The migration `RelateLeafAdminHooksToAllInboxes` copies each existing enabled account-level hook onto every inbox of that account and disables the original, so a current install keeps working on every inbox until the selection is narrowed.
 
 ## Branding
 

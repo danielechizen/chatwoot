@@ -5,11 +5,15 @@ class Api::V1::Accounts::Integrations::HooksController < Api::V1::Accounts::Inte
   before_action :reject_stripe_hook
 
   def create
-    @hook = Current.account.hooks.create!(permitted_params)
+    @hook = Current.account.hooks.create!(permitted_params.except(:inbox_ids))
   end
 
   def update
-    @hook.update!(hook_update_params)
+    if @hook.app_id == 'leaf_admin'
+      sync_leaf_inboxes
+    else
+      @hook.update!(hook_update_params)
+    end
   end
 
   def process_event
@@ -46,21 +50,61 @@ class Api::V1::Accounts::Integrations::HooksController < Api::V1::Accounts::Inte
   end
 
   def hook_update_params
-    attributes = permitted_params.slice(:status, :settings).to_h
-    return attributes unless leaf_admin_settings?(attributes)
-
-    settings = attributes['settings'].to_h.stringify_keys
-    stored = @hook.settings || {}
-    settings['api_key'] = stored['api_key'] if settings['api_key'].blank?
-    attributes.merge('settings' => settings)
+    permitted_params.slice(:status, :settings).to_h
   end
 
-  def leaf_admin_settings?(attributes)
-    @hook.app_id == 'leaf_admin' && attributes['settings'].present?
+  def sync_leaf_inboxes
+    inbox_ids = leaf_inbox_ids
+    return if performed?
+
+    settings = leaf_sync_settings
+    return if performed?
+
+    @hook = Leaf::InboxHooks.sync!(account: Current.account, settings: settings, inbox_ids: inbox_ids)
+  end
+
+  def leaf_inbox_ids
+    raw = params.dig(:hook, :inbox_ids)
+    unless raw.is_a?(Array) && raw.any?
+      render_could_not_create_error('inbox_ids must be a non-empty array')
+      return
+    end
+
+    ids = []
+    raw.each do |value|
+      unless value.is_a?(Integer) && value.positive?
+        render_could_not_create_error('inbox_ids must be a non-empty array')
+        return
+      end
+      ids << value
+    end
+    if ids.uniq.size != ids.size
+      render_could_not_create_error('inbox_ids must be a non-empty array')
+      return
+    end
+    if Current.account.inboxes.where(id: ids).count != ids.size
+      render_could_not_create_error('inbox_ids must belong to this account')
+      return
+    end
+
+    ids
+  end
+
+  def leaf_sync_settings
+    raw = params.dig(:hook, :settings)
+    source = raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : {}
+    settings = source.stringify_keys.slice('system_url', 'api_key')
+    stored = (@hook.settings || {}).stringify_keys
+    settings['system_url'] = stored['system_url'] if settings['system_url'].blank?
+    settings['api_key'] = stored['api_key'] if settings['api_key'].blank?
+    return settings if settings['system_url'].present? && settings['api_key'].present?
+
+    render_could_not_create_error('settings are invalid')
+    nil
   end
 
   def permitted_params
-    params.require(:hook).permit(:app_id, :inbox_id, :status, settings: {})
+    params.require(:hook).permit(:app_id, :inbox_id, :status, inbox_ids: [], settings: {})
   end
 
   def shopify_hook?

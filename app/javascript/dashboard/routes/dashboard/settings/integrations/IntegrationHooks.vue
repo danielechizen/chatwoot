@@ -119,7 +119,10 @@ export default {
 
 <template>
   <SettingsLayout :is-loading="uiFlags.isFetching">
-    <template v-if="isIntegrationSingle" #header>
+    <template
+      v-if="isIntegrationSingle || integrationId === 'leaf_admin'"
+      #header
+    >
       <BaseSettingsHeader
         :title="integration.name || ''"
         description=""
@@ -129,7 +132,11 @@ export default {
     </template>
     <template #body>
       <div v-if="showIntegrationHooks" class="w-full">
-        <div v-if="isIntegrationMultiple">
+        <div v-if="integrationId === 'leaf_admin'">
+          <LeafHookSettings :hooks="integration.hooks || []" />
+        </div>
+
+        <div v-else-if="isIntegrationMultiple">
           <MultipleIntegrationHooks
             :integration-id="integrationId"
             :show-add-button="showAddButton"
@@ -138,15 +145,11 @@ export default {
           />
         </div>
 
-        <div v-if="isIntegrationSingle">
+        <div v-else-if="isIntegrationSingle">
           <SingleIntegrationHooks
             :integration-id="integrationId"
             @add="openAddHookModal"
             @delete="openDeletePopup"
-          />
-          <LeafHookSettings
-            v-if="integrationId === 'leaf_admin' && integration.hooks.length"
-            :hook="integration.hooks[0]"
           />
         </div>
       </div>

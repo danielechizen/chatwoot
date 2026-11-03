@@ -62,6 +62,8 @@
     },
     "LEAF": {
       "SYSTEM_URL": "System URL",
+      "INBOXES": "Inboxes",
+      "INBOXES_PLACEHOLDER": "Select inboxes",
       "API_KEY": "Integration key",
       "API_KEY_PLACEHOLDER": "Leave blank to keep the current key",
       "SAVE": "Save",

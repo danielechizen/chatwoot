@@ -53,6 +53,7 @@ const invoicesError = ref('');
 const actionError = ref('');
 const selectedInvoiceId = ref('');
 const selectedContract = ref('');
+const selectedCustomerId = ref('');
 const payingMethod = ref('');
 const unblocking = ref(false);
 const disconnecting = ref(false);
@@ -61,6 +62,7 @@ const clearingMac = ref(false);
 const customer = computed(() => lookup.value?.customer || null);
 const connection = computed(() => customer.value?.connection || null);
 const contracts = computed(() => customer.value?.contracts || []);
+const customers = computed(() => lookup.value?.customers || []);
 const openInvoices = computed(() => invoicesPayload.value?.open_invoices || []);
 const paymentMethods = computed(
   () => invoicesPayload.value?.payment_methods || []
@@ -72,6 +74,12 @@ const contractOptions = computed(() =>
   contracts.value.map(contract => ({
     value: contract.number,
     label: contract.label,
+  }))
+);
+const customerOptions = computed(() =>
+  customers.value.map(item => ({
+    value: item.id,
+    label: item.name,
   }))
 );
 const showOnu = computed(
@@ -236,12 +244,19 @@ const paymentMessage = data => {
   return { ...base, message: data.card.payment_url };
 };
 
+const customerIdParam = () => selectedCustomerId.value || undefined;
+
 const fetchInvoices = async () => {
   invoicesError.value = '';
   const contractNumber = selectedContract.value || undefined;
   try {
     const response = await runInvoices(signal =>
-      LeafAPI.invoices(props.conversationId, contractNumber, signal)
+      LeafAPI.invoices(
+        props.conversationId,
+        contractNumber,
+        customerIdParam(),
+        signal
+      )
     );
     if (response) invoicesPayload.value = response.data;
   } catch {
@@ -249,8 +264,18 @@ const fetchInvoices = async () => {
   }
 };
 
+const applyCustomer = data => {
+  lookup.value = data;
+  selectedCustomerId.value = data.customer_id || '';
+};
+
 const loadCustomer = (contractNumber, signal) =>
-  LeafAPI.customer(props.conversationId, contractNumber, signal);
+  LeafAPI.customer(
+    props.conversationId,
+    contractNumber,
+    customerIdParam(),
+    signal
+  );
 
 const load = async () => {
   loadError.value = '';
@@ -260,6 +285,7 @@ const load = async () => {
   invoicesPayload.value = null;
   selectedInvoiceId.value = '';
   selectedContract.value = '';
+  selectedCustomerId.value = '';
   abortInvoices();
   try {
     const response = await runCustomer(signal =>
@@ -267,7 +293,7 @@ const load = async () => {
     );
     if (!response) return;
 
-    lookup.value = response.data;
+    applyCustomer(response.data);
     const firstContract = response.data.customer?.contracts?.[0]?.number || '';
     selectedContract.value = firstContract;
     if (response.data.found && firstContract) await fetchInvoices();
@@ -280,8 +306,34 @@ const refreshPanel = async () => {
   const response = await runCustomer(signal =>
     loadCustomer(selectedContract.value, signal)
   );
-  if (response) lookup.value = response.data;
+  if (response) applyCustomer(response.data);
   if (lookup.value?.found && selectedContract.value) await fetchInvoices();
+};
+
+const onCustomerChange = async value => {
+  selectedCustomerId.value = value ?? '';
+  selectedContract.value = '';
+  selectedInvoiceId.value = '';
+  invoicesPayload.value = null;
+  abortInvoices();
+  try {
+    const response = await runCustomer(signal =>
+      LeafAPI.customer(
+        props.conversationId,
+        undefined,
+        customerIdParam(),
+        signal
+      )
+    );
+    if (!response) return;
+
+    applyCustomer(response.data);
+    selectedContract.value =
+      response.data.customer?.contracts?.[0]?.number || '';
+    if (response.data.found && selectedContract.value) await fetchInvoices();
+  } catch (error) {
+    actionError.value = messageFor(error);
+  }
 };
 
 const onContractChange = async value => {
@@ -293,7 +345,7 @@ const onContractChange = async value => {
     const response = await runCustomer(signal =>
       loadCustomer(selectedContract.value, signal)
     );
-    if (response) lookup.value = response.data;
+    if (response) applyCustomer(response.data);
     if (selectedContract.value) await fetchInvoices();
   } catch (error) {
     actionError.value = messageFor(error);
@@ -316,7 +368,8 @@ const sendPayment = async (invoice, method) => {
       props.conversationId,
       invoice.id,
       method,
-      selectedContract.value
+      selectedContract.value,
+      customerIdParam()
     );
     if (data.method === 'pix') {
       await sendChatMessage({
@@ -351,7 +404,11 @@ const unblockConnection = async () => {
   actionError.value = '';
   unblocking.value = true;
   try {
-    await LeafAPI.unblock(props.conversationId, selectedContract.value);
+    await LeafAPI.unblock(
+      props.conversationId,
+      selectedContract.value,
+      customerIdParam()
+    );
     await refreshPanel();
   } catch (error) {
     actionError.value = messageFor(error);
@@ -366,7 +423,11 @@ const disconnectConnection = async () => {
   actionError.value = '';
   disconnecting.value = true;
   try {
-    await LeafAPI.disconnect(props.conversationId, selectedContract.value);
+    await LeafAPI.disconnect(
+      props.conversationId,
+      selectedContract.value,
+      customerIdParam()
+    );
     await refreshPanel();
   } catch (error) {
     actionError.value = messageFor(error);
@@ -381,7 +442,11 @@ const clearMac = async () => {
   actionError.value = '';
   clearingMac.value = true;
   try {
-    await LeafAPI.clearMac(props.conversationId, selectedContract.value);
+    await LeafAPI.clearMac(
+      props.conversationId,
+      selectedContract.value,
+      customerIdParam()
+    );
     await refreshPanel();
   } catch (error) {
     actionError.value = messageFor(error);
@@ -409,6 +474,14 @@ watch(() => props.conversationId, load, { immediate: true });
       {{ $t('CONVERSATION_SIDEBAR.LEAF.NOT_FOUND') }}
     </p>
     <template v-else-if="customer">
+      <Select
+        v-if="customerOptions.length > 1"
+        full-width
+        :model-value="selectedCustomerId"
+        :options="customerOptions"
+        :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.CUSTOMER')"
+        @update:model-value="onCustomerChange"
+      />
       <div class="flex items-center gap-2">
         <Icon icon="i-lucide-building-2 size-4 shrink-0 text-n-slate-11" />
         <span class="min-w-0 break-words">{{ customer.name }}</span>
@@ -430,8 +503,8 @@ watch(() => props.conversationId, load, { immediate: true });
           <span class="min-w-0 truncate">{{ connection.username }}</span>
         </div>
         <div class="flex items-center gap-2 self-start">
-          <Icon icon="i-lucide-wifi size-4 shrink-0 text-n-slate-11" />
           <Label
+            class="w-fit"
             :label="statusLabel(connection.status)"
             :color="connectionStatusColor"
             compact
@@ -450,12 +523,17 @@ watch(() => props.conversationId, load, { immediate: true });
           <Icon icon="i-lucide-barcode size-4 shrink-0 text-n-slate-11" />
           <span class="min-w-0 truncate">{{ connection.onu.serial }}</span>
         </div>
-        <Label
-          class="self-start w-fit"
-          :label="statusLabel(connection.onu.status)"
-          :color="onuStatusColor"
-          compact
-        />
+        <div class="flex flex-wrap items-center gap-2 self-start">
+          <span class="text-xs text-n-slate-11">
+            {{ $t('CONVERSATION_SIDEBAR.LEAF.ONU_STATUS') }}
+          </span>
+          <Label
+            class="w-fit"
+            :label="statusLabel(connection.onu.status)"
+            :color="onuStatusColor"
+            compact
+          />
+        </div>
         <div v-if="showRx" class="flex items-center gap-2">
           <Icon icon="i-lucide-signal size-4 shrink-0 text-n-slate-11" />
           <span class="text-n-slate-11">
@@ -468,7 +546,7 @@ watch(() => props.conversationId, load, { immediate: true });
           <span class="min-w-0 break-words">{{ connection.onu.error }}</span>
         </div>
       </section>
-      <div class="flex flex-col items-start gap-1 self-start">
+      <div class="flex flex-wrap items-center gap-2 self-start">
         <span class="text-xs text-n-slate-11">
           {{ $t('CONVERSATION_SIDEBAR.LEAF.CONTRACT_STATUS') }}
         </span>
