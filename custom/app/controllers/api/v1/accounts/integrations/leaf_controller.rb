@@ -83,18 +83,15 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
   end
 
   def test
-    hook = credential_hook
-    return if performed?
-
     system_url = optional_string_param(:system_url)
     return if performed?
 
     api_key = optional_string_param(:api_key)
     return if performed?
 
-    settings = (hook.settings || {}).stringify_keys
-    settings['system_url'] = system_url if system_url.present?
-    settings['api_key'] = api_key if api_key.present?
+    settings = test_settings(system_url, api_key)
+    return if performed?
+
     render json: Leaf::Client.new(Leaf::HttpAdapter.new(settings: settings)).test_connection
   rescue Leaf::Contract::Error => e
     render_leaf_error(e)
@@ -153,10 +150,26 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     conversation
   end
 
-  def credential_hook
-    hook = Current.account.hooks.where(app_id: APP_ID, status: :enabled).order(:id).first
-    render json: { error: 'leaf_admin_not_enabled' }, status: :unprocessable_entity if hook.blank?
-    hook
+  def test_settings(system_url, api_key)
+    if system_url.present? && api_key.present?
+      return { 'system_url' => system_url, 'api_key' => api_key }
+    end
+
+    hooks = Current.account.hooks.where(app_id: APP_ID, status: :enabled).order(:id).to_a
+    hook = if system_url.present?
+             hooks.find { |item| item.settings.to_h.stringify_keys['system_url'].to_s == system_url }
+           else
+             hooks.first
+           end
+    if hook.blank?
+      render json: { error: 'leaf_admin_not_enabled' }, status: :unprocessable_entity
+      return
+    end
+
+    settings = hook.settings.to_h.stringify_keys
+    settings['system_url'] = system_url if system_url.present?
+    settings['api_key'] = api_key if api_key.present?
+    settings
   end
 
   def inbox_hook(conversation)

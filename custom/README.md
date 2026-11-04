@@ -9,12 +9,12 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 - `config/initializers/01_inject_enterprise_edition_module.rb` — `const_get_maybe_false` must return nil, not false, when the receiver is not a module or the constant is missing. `&&` used to return boolean false, and the next lookup called `const_defined?` on that false. `const_defined?(name, false)` does not trigger Zeitwerk, so `Enterprise` can be missing at that moment too.
 - `config/routes.rb` — Leaf routes under `integrations/leaf`: `GET customer`, `GET invoices`, `POST payment`, `POST unblock`, `POST disconnect`, `POST clear_mac`, `POST test`.
 - `config/integration/apps.yml` — `leaf_admin` catalog entry, `hook_type: inbox`, `allow_multiple_hooks: true`. `visible_properties` stays `system_url` only, so the API key is never returned to the browser.
-- `app/controllers/api/v1/accounts/integrations/hooks_controller.rb` — on `PATCH` for `leaf_admin`, `inbox_ids` must list one or more inboxes of the account. A blank `api_key` keeps the stored key. The selected inboxes are the enabled hooks.
+- `app/controllers/api/v1/accounts/integrations/hooks_controller.rb` — each `leaf_admin` registration has its own `system_url` and `api_key`. Create and update require `inbox_ids` for one or more inboxes of the account. A blank `api_key` on update keeps that registration's stored key. An inbox belongs to only one registration.
 - `config/locales/en.yml` — English `integration_apps.leaf_admin` copy.
 - `config/locales/pt_BR.yml` — Portuguese `integration_apps.leaf_admin` copy.
 - `app/javascript/dashboard/composables/useUISettings.js` — `leaf_customer` is the first default sidebar item. A saved order that omits it gets the item inserted at the front. The contact sidebar is open when `is_contact_sidebar_open` is unset, and a saved `false` stays closed.
 - `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue` — one accordion, shown when the conversation inbox is one of the enabled `leaf_admin` inbox hooks. The accordion is open when `is_leaf_customer_open` is unset.
-- `app/javascript/dashboard/routes/dashboard/settings/integrations/LeafHookSettings.vue` — edits the saved system URL, API key, and required inbox selection, and tests the connection.
+- `app/javascript/dashboard/routes/dashboard/settings/integrations/LeafHookSettings.vue` — one form per Leaf system. Add integration creates another URL, key, and inbox selection. An inbox already used by one system is not offered to the others.
 - `app/javascript/dashboard/i18n/locale/en/conversation.json` — English sidebar strings.
 - `app/javascript/dashboard/i18n/locale/pt_BR/conversation.json` — Portuguese sidebar strings.
 - `public/dashboard/images/integrations/leaf_admin.png` — light logo.
@@ -72,7 +72,7 @@ Stable 422 codes from the controller: `leaf_admin_not_enabled`, `unknown_method`
 
 `Leaf::MockAdapter` stays in the repo and is not used for an enabled hook. Its cache, when the class is used directly, still lives in `Rails.cache`.
 
-`leaf_admin` is an inbox hook and allows one hook per inbox, sharing `system_url` and `api_key`. The settings form requires at least one inbox. The sidebar and the Leaf API run only when the conversation inbox is one of those hooks. `POST test` still uses any enabled Leaf hook for stored credentials. The migration `RelateLeafAdminHooksToAllInboxes` copies each existing enabled account-level hook onto every inbox of that account and disables the original, so a current install keeps working on every inbox until the selection is narrowed.
+`leaf_admin` is an inbox hook with `allow_multiple_hooks`. Each registration has its own `system_url`, `api_key`, and one or more inboxes. A conversation uses the enabled hook whose inbox is that conversation's inbox, so two systems on the same account stay separate. An inbox cannot belong to two registrations. The settings page adds a second registration without changing the URL already stored on the first. `POST test` uses the URL and key in that form. A blank key falls back to the saved hook with that same URL. The migration `RelateLeafAdminHooksToAllInboxes` still copies each existing enabled account-level hook onto every inbox of that account, keeping that hook's URL, and disables the original.
 
 ## Branding
 

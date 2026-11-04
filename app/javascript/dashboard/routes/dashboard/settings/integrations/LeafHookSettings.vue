@@ -1,12 +1,9 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useStore } from 'vuex';
-import { useAlert } from 'dashboard/composables';
-import LeafAPI from 'dashboard/api/leaf';
 import Button from 'dashboard/components-next/button/Button.vue';
-import Input from 'dashboard/components-next/input/Input.vue';
-import TagMultiSelectComboBox from 'dashboard/components-next/combobox/TagMultiSelectComboBox.vue';
+import LeafRegistrationForm from './LeafRegistrationForm.vue';
 
 const props = defineProps({
   hooks: {
@@ -17,150 +14,74 @@ const props = defineProps({
 
 const { t } = useI18n();
 const store = useStore();
-const systemUrl = ref('');
-const apiKey = ref('');
-const selectedInboxIds = ref([]);
-const saving = ref(false);
-const testing = ref(false);
+const showDraft = ref(false);
 
 const inboxes = computed(() => store.getters['inboxes/getInboxes'] || []);
-const inboxOptions = computed(() =>
-  inboxes.value.map(inbox => ({ value: inbox.id, label: inbox.name }))
-);
-const hasStoredHook = computed(() => props.hooks.some(hook => hook.id));
-const canSave = computed(
-  () =>
-    systemUrl.value.trim() !== '' &&
-    selectedInboxIds.value.length > 0 &&
-    (hasStoredHook.value || apiKey.value.trim() !== '') &&
-    !saving.value
-);
 
-const storedSystemUrl = hooks =>
-  hooks.find(hook => hook.settings?.system_url)?.settings.system_url || '';
+const groups = computed(() => {
+  const ordered = [];
+  const index = {};
+  props.hooks.forEach(hook => {
+    const url = hook.settings?.system_url || '';
+    const key = url || `hook:${hook.id}`;
+    if (index[key] === undefined) {
+      index[key] = ordered.length;
+      ordered.push({ key, url, hooks: [] });
+    }
+    ordered[index[key]].hooks.push(hook);
+  });
+  return ordered;
+});
 
-const enabledInboxIds = hooks =>
-  hooks
-    .filter(hook => hook.status === true || hook.status === 'enabled')
-    .map(hook => hook.inbox?.id)
-    .filter(id => Number.isInteger(id));
+const showNewForm = computed(() => showDraft.value || props.hooks.length === 0);
 
-watch(
-  () => props.hooks,
-  hooks => {
-    systemUrl.value = storedSystemUrl(hooks);
-    selectedInboxIds.value = enabledInboxIds(hooks);
-  },
-  { immediate: true }
-);
+const inboxIds = hooks =>
+  hooks.map(hook => hook.inbox?.id).filter(id => Number.isInteger(id));
+
+const optionsFor = (ownIds = []) => {
+  const taken = new Set(
+    inboxIds(props.hooks).filter(id => !ownIds.includes(id))
+  );
+  return inboxes.value
+    .filter(inbox => !taken.has(inbox.id))
+    .map(inbox => ({ value: inbox.id, label: inbox.name }));
+};
+
+const urlsExcept = url =>
+  groups.value.map(group => group.url).filter(item => item && item !== url);
 
 onMounted(() => {
   store.dispatch('inboxes/get');
 });
 
-const leafHook = () =>
-  store.getters['integrations/getIntegration']('leaf_admin')?.hooks?.find(
-    hook => hook.id
-  );
-
-const save = async () => {
-  if (!canSave.value) return;
-
-  saving.value = true;
-  const settings = {
-    system_url: systemUrl.value.trim(),
-    api_key: apiKey.value,
-  };
-  const inboxIds = [...selectedInboxIds.value];
-  try {
-    const existing = props.hooks.find(hook => hook.id);
-    if (existing) {
-      await store.dispatch('integrations/updateHook', {
-        hookId: existing.id,
-        hookData: { settings, inbox_ids: inboxIds },
-      });
-    } else {
-      await store.dispatch('integrations/createHook', {
-        app_id: 'leaf_admin',
-        inbox_id: inboxIds[0],
-        settings,
-      });
-      if (inboxIds.length > 1) {
-        const created = leafHook();
-        if (created) {
-          await store.dispatch('integrations/updateHook', {
-            hookId: created.id,
-            hookData: { settings, inbox_ids: inboxIds },
-          });
-        }
-      }
-    }
-    apiKey.value = '';
-    await store.dispatch('integrations/get');
-    useAlert(t('INTEGRATION_APPS.LEAF.SAVE_SUCCESS'));
-  } catch {
-    useAlert(t('INTEGRATION_APPS.LEAF.SAVE_ERROR'));
-  } finally {
-    saving.value = false;
-  }
-};
-
-const testConnection = async () => {
-  testing.value = true;
-  try {
-    await LeafAPI.test(systemUrl.value, apiKey.value);
-    useAlert(t('INTEGRATION_APPS.LEAF.TEST_SUCCESS'));
-  } catch {
-    useAlert(t('INTEGRATION_APPS.LEAF.TEST_ERROR'));
-  } finally {
-    testing.value = false;
-  }
+const closeDraft = () => {
+  showDraft.value = false;
 };
 </script>
 
 <template>
-  <form
-    class="flex flex-col gap-4 mt-4 p-4 outline outline-1 outline-n-container bg-n-card rounded-xl"
-    @submit.prevent="save"
-  >
-    <Input
-      v-model="systemUrl"
-      :label="t('INTEGRATION_APPS.LEAF.SYSTEM_URL')"
-      :placeholder="t('INTEGRATION_APPS.LEAF.SYSTEM_URL')"
-    />
-    <div class="flex flex-col min-w-0 gap-1">
-      <span class="mb-0.5 text-heading-3 text-n-slate-12">
-        {{ t('INTEGRATION_APPS.LEAF.INBOXES') }}
-      </span>
-      <TagMultiSelectComboBox
-        v-model="selectedInboxIds"
-        :options="inboxOptions"
-        :placeholder="t('INTEGRATION_APPS.LEAF.INBOXES_PLACEHOLDER')"
+  <div class="flex flex-col gap-4 mt-4">
+    <div class="flex justify-end">
+      <Button
+        :label="t('INTEGRATION_APPS.LEAF.ADD')"
+        :disabled="showNewForm"
+        @click="showDraft = true"
       />
     </div>
-    <Input
-      v-model="apiKey"
-      type="password"
-      autocomplete="new-password"
-      :label="t('INTEGRATION_APPS.LEAF.API_KEY')"
-      :placeholder="t('INTEGRATION_APPS.LEAF.API_KEY_PLACEHOLDER')"
+    <LeafRegistrationForm
+      v-if="showNewForm"
+      :inbox-options="optionsFor()"
+      :other-urls="urlsExcept('')"
+      :allow-cancel="showDraft && props.hooks.length > 0"
+      @saved="closeDraft"
+      @cancel="closeDraft"
     />
-    <div class="flex flex-wrap gap-2">
-      <Button
-        type="submit"
-        :label="t('INTEGRATION_APPS.LEAF.SAVE')"
-        :is-loading="saving"
-        :disabled="!canSave"
-      />
-      <Button
-        type="button"
-        faded
-        slate
-        :label="t('INTEGRATION_APPS.LEAF.TEST')"
-        :is-loading="testing"
-        :disabled="testing"
-        @click="testConnection"
-      />
-    </div>
-  </form>
+    <LeafRegistrationForm
+      v-for="group in groups"
+      :key="group.key"
+      :hooks="group.hooks"
+      :inbox-options="optionsFor(inboxIds(group.hooks))"
+      :other-urls="urlsExcept(group.url)"
+    />
+  </div>
 </template>
