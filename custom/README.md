@@ -14,7 +14,7 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 - `config/locales/pt_BR.yml` — Portuguese `integration_apps.leaf_admin` copy.
 - `app/javascript/dashboard/composables/useUISettings.js` — `leaf_customer` is the first default sidebar item. A saved order that omits it gets the item inserted at the front. The contact sidebar is open when `is_contact_sidebar_open` is unset, and a saved `false` stays closed.
 - `app/javascript/dashboard/routes/dashboard/conversation/ContactPanel.vue` — one accordion, shown when the conversation inbox is one of the enabled `leaf_admin` inbox hooks. The accordion is open when `is_leaf_customer_open` is unset.
-- `app/javascript/dashboard/routes/dashboard/settings/integrations/LeafHookSettings.vue` — one form per Leaf system. Add integration creates another URL, key, and inbox selection. An inbox already used by one system is not offered to the others.
+- `app/javascript/dashboard/routes/dashboard/settings/integrations/LeafHookSettings.vue` — lists one row per Leaf system, the same layout as the webhook list: system URL, selected inboxes, and edit and delete actions. Add integration opens another URL, key, and inbox selection. An inbox already used by one system is not offered to the others.
 - `app/javascript/dashboard/i18n/locale/en/conversation.json` — English sidebar strings.
 - `app/javascript/dashboard/i18n/locale/pt_BR/conversation.json` — Portuguese sidebar strings.
 - `public/dashboard/images/integrations/leaf_admin.png` — light logo.

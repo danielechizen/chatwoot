@@ -1,22 +1,30 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useStore } from 'vuex';
-import Button from 'dashboard/components-next/button/Button.vue';
-import LeafRegistrationForm from './LeafRegistrationForm.vue';
+import { picoSearch } from '@chatwoot/pico-search';
+import { BaseTable } from 'dashboard/components-next/table';
+import LeafRegistrationRow from './LeafRegistrationRow.vue';
 
 const props = defineProps({
   hooks: {
     type: Array,
     default: () => [],
   },
+  searchQuery: {
+    type: String,
+    default: '',
+  },
 });
 
-const { t } = useI18n();
-const store = useStore();
-const showDraft = ref(false);
+const emit = defineEmits(['edit', 'delete']);
 
-const inboxes = computed(() => store.getters['inboxes/getInboxes'] || []);
+const { t } = useI18n();
+
+const enabledInboxNames = hooks =>
+  hooks
+    .filter(hook => hook.status === true || hook.status === 'enabled')
+    .map(hook => hook.inbox?.name)
+    .filter(Boolean);
 
 const groups = computed(() => {
   const ordered = [];
@@ -30,58 +38,39 @@ const groups = computed(() => {
     }
     ordered[index[key]].hooks.push(hook);
   });
-  return ordered;
+  return ordered.map(group => ({
+    ...group,
+    inboxLabel: enabledInboxNames(group.hooks).join(', '),
+  }));
 });
 
-const showNewForm = computed(() => showDraft.value || props.hooks.length === 0);
-
-const inboxIds = hooks =>
-  hooks.map(hook => hook.inbox?.id).filter(id => Number.isInteger(id));
-
-const optionsFor = (ownIds = []) => {
-  const taken = new Set(
-    inboxIds(props.hooks).filter(id => !ownIds.includes(id))
-  );
-  return inboxes.value
-    .filter(inbox => !taken.has(inbox.id))
-    .map(inbox => ({ value: inbox.id, label: inbox.name }));
-};
-
-const urlsExcept = url =>
-  groups.value.map(group => group.url).filter(item => item && item !== url);
-
-onMounted(() => {
-  store.dispatch('inboxes/get');
+const filteredGroups = computed(() => {
+  const query = props.searchQuery.trim();
+  if (!query) return groups.value;
+  return picoSearch(groups.value, query, ['url', 'inboxLabel']);
 });
 
-const closeDraft = () => {
-  showDraft.value = false;
-};
+const tableHeaders = computed(() => [
+  t('INTEGRATION_APPS.LEAF.SYSTEM_URL'),
+  t('INTEGRATION_APPS.LEAF.ACTIONS'),
+]);
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 mt-4">
-    <div class="flex justify-end">
-      <Button
-        :label="t('INTEGRATION_APPS.LEAF.ADD')"
-        :disabled="showNewForm"
-        @click="showDraft = true"
+  <BaseTable
+    :headers="tableHeaders"
+    :items="filteredGroups"
+    :no-data-message="searchQuery ? t('INTEGRATION_APPS.LEAF.NO_RESULTS') : ''"
+  >
+    <template #row="{ items }">
+      <LeafRegistrationRow
+        v-for="(registration, index) in items"
+        :key="registration.key"
+        :index="index"
+        :registration="registration"
+        @edit="emit('edit', $event)"
+        @delete="emit('delete', $event)"
       />
-    </div>
-    <LeafRegistrationForm
-      v-if="showNewForm"
-      :inbox-options="optionsFor()"
-      :other-urls="urlsExcept('')"
-      :allow-cancel="showDraft && props.hooks.length > 0"
-      @saved="closeDraft"
-      @cancel="closeDraft"
-    />
-    <LeafRegistrationForm
-      v-for="group in groups"
-      :key="group.key"
-      :hooks="group.hooks"
-      :inbox-options="optionsFor(inboxIds(group.hooks))"
-      :other-urls="urlsExcept(group.url)"
-    />
-  </div>
+    </template>
+  </BaseTable>
 </template>

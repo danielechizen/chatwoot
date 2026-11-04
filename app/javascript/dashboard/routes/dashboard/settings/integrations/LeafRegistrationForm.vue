@@ -21,10 +21,6 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
-  allowCancel: {
-    type: Boolean,
-    default: false,
-  },
 });
 
 const emit = defineEmits(['saved', 'cancel']);
@@ -36,8 +32,6 @@ const apiKey = ref('');
 const selectedInboxIds = ref([]);
 const saving = ref(false);
 const testing = ref(false);
-const removing = ref(false);
-const showRemove = ref(false);
 
 const isNew = computed(() => !props.hooks.some(hook => hook.id));
 const canSave = computed(
@@ -50,10 +44,6 @@ const canSave = computed(
 
 const storedSystemUrl = hooks =>
   hooks.find(hook => hook.settings?.system_url)?.settings.system_url || '';
-
-const closeRemove = () => {
-  showRemove.value = false;
-};
 
 watch(
   () => props.hooks,
@@ -115,33 +105,10 @@ const testConnection = async () => {
     testing.value = false;
   }
 };
-
-const removeRegistration = async () => {
-  removing.value = true;
-  try {
-    const hooks = [...props.hooks];
-    for (const hook of hooks) {
-      await store.dispatch('integrations/deleteHook', {
-        hookId: hook.id,
-        appId: 'leaf_admin',
-      });
-    }
-    showRemove.value = false;
-    await store.dispatch('integrations/get');
-    useAlert(t('INTEGRATION_APPS.DELETE.API.SUCCESS_MESSAGE'));
-  } catch {
-    useAlert(t('INTEGRATION_APPS.DELETE.API.ERROR_MESSAGE'));
-  } finally {
-    removing.value = false;
-  }
-};
 </script>
 
 <template>
-  <form
-    class="flex flex-col gap-4 p-4 outline outline-1 outline-n-container bg-n-card rounded-xl"
-    @submit.prevent="save"
-  >
+  <form class="flex flex-col w-full gap-4" @submit.prevent="save">
     <Input
       v-model="systemUrl"
       :label="t('INTEGRATION_APPS.LEAF.SYSTEM_URL')"
@@ -168,12 +135,13 @@ const removeRegistration = async () => {
           : t('INTEGRATION_APPS.LEAF.API_KEY_PLACEHOLDER')
       "
     />
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-row justify-end w-full gap-2 px-0 py-2">
       <Button
-        type="submit"
-        :label="t('INTEGRATION_APPS.LEAF.SAVE')"
-        :is-loading="saving"
-        :disabled="!canSave"
+        type="button"
+        faded
+        slate
+        :label="t('INTEGRATION_APPS.LEAF.CANCEL')"
+        @click="emit('cancel')"
       />
       <Button
         type="button"
@@ -185,32 +153,11 @@ const removeRegistration = async () => {
         @click="testConnection"
       />
       <Button
-        v-if="isNew && allowCancel"
-        type="button"
-        faded
-        slate
-        :label="t('INTEGRATION_APPS.LEAF.CANCEL')"
-        @click="emit('cancel')"
-      />
-      <Button
-        v-if="!isNew"
-        type="button"
-        faded
-        ruby
-        :label="t('INTEGRATION_APPS.LEAF.REMOVE')"
-        :is-loading="removing"
-        :disabled="removing"
-        @click="showRemove = true"
+        type="submit"
+        :label="t('INTEGRATION_APPS.LEAF.SAVE')"
+        :is-loading="saving"
+        :disabled="!canSave"
       />
     </div>
   </form>
-  <woot-delete-modal
-    v-model:show="showRemove"
-    :on-close="closeRemove"
-    :on-confirm="removeRegistration"
-    :title="t('INTEGRATION_APPS.LEAF.REMOVE_TITLE')"
-    :message="t('INTEGRATION_APPS.LEAF.REMOVE_MESSAGE')"
-    :confirm-text="t('INTEGRATION_APPS.LEAF.REMOVE')"
-    :reject-text="t('INTEGRATION_APPS.LEAF.CANCEL')"
-  />
 </template>

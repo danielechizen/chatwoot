@@ -70,7 +70,17 @@
       "CANCEL": "Cancel",
       "REMOVE": "Remove",
       "REMOVE_TITLE": "Remove this integration?",
-      "REMOVE_MESSAGE": "The selected inboxes will stop using this Leaf system.",
+      "REMOVE_MESSAGE": "The selected inboxes will stop using this Leaf system ({systemUrl}).",
+      "COUNT": "{n} integration | {n} integrations",
+      "SEARCH_PLACEHOLDER": "Search integrations...",
+      "NO_RESULTS": "No integrations found matching your search",
+      "EDIT": "Edit",
+      "DELETE": "Delete",
+      "EDIT_TITLE": "Edit integration",
+      "ACTIONS": "Actions",
+      "LIST": {
+        "404": "There are no Leaf integrations configured for this account."
+      },
       "SAVE": "Save",
       "TEST": "Test connection",
       "SAVE_SUCCESS": "Settings saved.",

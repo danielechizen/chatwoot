@@ -70,7 +70,17 @@
       "CANCEL": "Cancelar",
       "REMOVE": "Remover",
       "REMOVE_TITLE": "Remover esta integração?",
-      "REMOVE_MESSAGE": "As caixas selecionadas deixam de usar este sistema Leaf.",
+      "REMOVE_MESSAGE": "As caixas selecionadas deixam de usar este sistema Leaf ({systemUrl}).",
+      "COUNT": "{n} integração | {n} integrações",
+      "SEARCH_PLACEHOLDER": "Pesquisar integrações...",
+      "NO_RESULTS": "Nenhuma integração encontrada correspondente à sua busca",
+      "EDIT": "Alterar",
+      "DELETE": "Excluir",
+      "EDIT_TITLE": "Editar integração",
+      "ACTIONS": "Ações",
+      "LIST": {
+        "404": "Não há integrações Leaf configuradas para esta conta."
+      },
       "SAVE": "Salvar",
       "TEST": "Testar conexão",
       "SAVE_SUCCESS": "Configurações salvas.",
