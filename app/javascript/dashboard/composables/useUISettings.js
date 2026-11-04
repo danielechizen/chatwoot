@@ -2,7 +2,10 @@ import { computed } from 'vue';
 import { useStore, useStoreGetters } from 'dashboard/composables/store';
 import wootConstants from 'dashboard/constants/globals';
 
+const LEAF_SIDEBAR_ITEM = 'leaf_customer';
+
 export const DEFAULT_CONVERSATION_SIDEBAR_ITEMS_ORDER = Object.freeze([
+  { name: LEAF_SIDEBAR_ITEM },
   { name: 'conversation_actions' },
   { name: 'macros' },
   { name: 'conversation_info' },
@@ -47,9 +50,14 @@ const useConversationSidebarItemsOrder = uiSettings => {
     const itemsOrderCopy = [...itemsOrder];
     // If the sidebar order doesn't have the new elements, then add them to the list.
     DEFAULT_CONVERSATION_SIDEBAR_ITEMS_ORDER.forEach(item => {
-      if (!itemsOrderCopy.find(i => i.name === item.name)) {
-        itemsOrderCopy.push(item);
+      if (itemsOrderCopy.find(i => i.name === item.name)) return;
+
+      if (item.name === LEAF_SIDEBAR_ITEM) {
+        itemsOrderCopy.unshift(item);
+        return;
       }
+
+      itemsOrderCopy.push(item);
     });
     return itemsOrderCopy;
   });
@@ -138,6 +146,12 @@ export function useUISettings() {
     });
   };
 
+  const isContactSidebarOpen = computed(() => {
+    const value = uiSettings.value?.is_contact_sidebar_open;
+    if (value === undefined || value === null) return true;
+    return value === true;
+  });
+
   const isOnExpandedLayout = computed(() => {
     const {
       LAYOUT_TYPES: { CONDENSED },
@@ -150,6 +164,7 @@ export function useUISettings() {
   return {
     uiSettings,
     updateUISettings,
+    isContactSidebarOpen,
     isOnExpandedLayout,
     conversationSidebarItemsOrder: useConversationSidebarItemsOrder(uiSettings),
     contactSidebarItemsOrder: useContactSidebarItemsOrder(uiSettings),

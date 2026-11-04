@@ -493,6 +493,10 @@ en:
       name: 'LeadSquared'
       short_description: 'Sync your contacts and conversations with LeadSquared CRM.'
       description: 'Sync your contacts and conversations with LeadSquared CRM. This integration automatically creates leads in LeadSquared when new contacts are added, and logs conversation activity to provide your sales team with complete context.'
+    leaf_admin:
+      name: 'Leaf Admin'
+      short_description: 'View connection, ONU, and open invoices in the conversation.'
+      description: 'Connect Leaf Admin to look up the contact by CPF/CNPJ or phone and show registration, connection, ONU, and open invoices in the conversation sidebar. Agents can send PIX, boleto, or card payment details, disconnect, clear the MAC, and unblock a connection.'
   captain:
     copilot_message_required: Message is required
     copilot_error: 'Please connect an assistant to this inbox to use Copilot'
@@ -1105,3 +1109,20 @@ en:
         test_email:
           queued: 'Test email on its way to %{email}. Ask the user to check their inbox and spam folder.'
           subject: 'Test email from %{brand_name} support'
+  leaf:
+    notes:
+      unblock:
+        success: "Extension requested for %{name}'s connection."
+        failure: "Could not extend %{name}'s connection."
+        success_unnamed: 'Extension requested for the connection.'
+        failure_unnamed: 'Could not extend the connection.'
+      clear_mac:
+        success: "MAC clear requested for %{name}'s connection."
+        failure: "Could not clear the MAC for %{name}'s connection."
+        success_unnamed: 'MAC clear requested for the connection.'
+        failure_unnamed: 'Could not clear the MAC for the connection.'
+      disconnect:
+        success: "Disconnect requested for %{name}'s connection."
+        failure: "Could not disconnect %{name}'s connection."
+        success_unnamed: 'Disconnect requested for the connection.'
+        failure_unnamed: 'Could not disconnect the connection.'

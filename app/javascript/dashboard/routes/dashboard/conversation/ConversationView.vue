@@ -59,8 +59,12 @@ export default {
     },
   },
   setup() {
-    const { uiSettings, updateUISettings, isOnExpandedLayout } =
-      useUISettings();
+    const {
+      uiSettings,
+      updateUISettings,
+      isOnExpandedLayout,
+      isContactSidebarOpen,
+    } = useUISettings();
     const { accountId } = useAccount();
     provide(
       CONTACT_CONVERSATION_NAVIGATION,
@@ -71,6 +75,7 @@ export default {
       uiSettings,
       updateUISettings,
       isOnExpandedLayout,
+      isContactSidebarOpen,
       accountId,
     };
   },
@@ -95,8 +100,7 @@ export default {
         return false;
       }
 
-      const { is_contact_sidebar_open: isContactSidebarOpen } = this.uiSettings;
-      return isContactSidebarOpen;
+      return this.isContactSidebarOpen;
     },
   },
   watch: {
