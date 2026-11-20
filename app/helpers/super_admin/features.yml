@@ -5,7 +5,7 @@
 saml:
   name: 'SAML SSO'
   description: 'Configuration for controlling SAML Single Sign-On availability'
-  enabled: <%= ChatwootApp.enterprise? %>
+  enabled: <%= ChatwootApp.enterprise? && ChatwootHub.pricing_plan != 'community' %>
   icon: 'i-lucide-key-round'
   config_key: 'saml'
   enterprise: true

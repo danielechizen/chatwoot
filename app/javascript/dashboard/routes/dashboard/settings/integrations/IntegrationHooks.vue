@@ -3,9 +3,13 @@ import { isEmptyObject } from '../../../../helper/commons';
 import { mapGetters } from 'vuex';
 import { useAlert } from 'dashboard/composables';
 import { useIntegrationHook } from 'dashboard/composables/useIntegrationHook';
+import { useBranding } from 'shared/composables/useBranding';
 import NewHook from './NewHook.vue';
 import SingleIntegrationHooks from './SingleIntegrationHooks.vue';
 import MultipleIntegrationHooks from './MultipleIntegrationHooks.vue';
+import LeafHookSettings from './LeafHookSettings.vue';
+import LeafRegistrationDialogs from './LeafRegistrationDialogs.vue';
+import NextButton from 'dashboard/components-next/button/Button.vue';
 import SettingsLayout from '../SettingsLayout.vue';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 
@@ -14,6 +18,9 @@ export default {
     NewHook,
     SingleIntegrationHooks,
     MultipleIntegrationHooks,
+    LeafHookSettings,
+    LeafRegistrationDialogs,
+    NextButton,
     SettingsLayout,
     BaseSettingsHeader,
   },
@@ -25,6 +32,7 @@ export default {
   },
   setup(props) {
     const { integrationId } = props;
+    const { replaceInstallationName } = useBranding();
 
     const {
       integration,
@@ -38,6 +46,7 @@ export default {
       isIntegrationMultiple,
       isIntegrationSingle,
       isHookTypeInbox,
+      replaceInstallationName,
     };
   },
   data() {
@@ -47,6 +56,7 @@ export default {
       showDeleteConfirmationPopup: false,
       selectedHook: {},
       alertMessage: '',
+      leafSearchQuery: '',
     };
   },
   computed: {
@@ -75,6 +85,18 @@ export default {
     cancelText() {
       return this.$t('INTEGRATION_APPS.DELETE.CANCEL_BUTTON_TEXT');
     },
+    isLeafAdmin() {
+      return this.integrationId === 'leaf_admin';
+    },
+    leafRegistrationCount() {
+      const hooks = this.integration?.hooks || [];
+      const seen = new Set();
+      hooks.forEach(hook => {
+        const url = hook.settings?.system_url || '';
+        seen.add(url || `hook:${hook.id}`);
+      });
+      return seen.size;
+    },
   },
   mounted() {
     this.$store.dispatch('integrations/get');
@@ -82,6 +104,15 @@ export default {
   methods: {
     openAddHookModal() {
       this.showAddHookModal = true;
+    },
+    openLeafAdd() {
+      this.$refs.leafDialogs?.openAdd();
+    },
+    openLeafEdit(registration) {
+      this.$refs.leafDialogs?.openEdit(registration);
+    },
+    openLeafDelete(registration) {
+      this.$refs.leafDialogs?.openDelete(registration);
     },
     hideAddHookModal() {
       this.showAddHookModal = false;
@@ -116,9 +147,41 @@ export default {
 </script>
 
 <template>
-  <SettingsLayout :is-loading="uiFlags.isFetching">
-    <template v-if="isIntegrationSingle" #header>
+  <SettingsLayout
+    :is-loading="uiFlags.isFetching"
+    :no-records-found="
+      isLeafAdmin && showIntegrationHooks && !leafRegistrationCount
+    "
+    :no-records-message="$t('INTEGRATION_APPS.LEAF.LIST.404')"
+  >
+    <template v-if="isIntegrationSingle || isLeafAdmin" #header>
       <BaseSettingsHeader
+        v-if="isLeafAdmin && integration.name"
+        v-model:search-query="leafSearchQuery"
+        :title="integration.name"
+        :description="replaceInstallationName(integration.description || '')"
+        :search-placeholder="$t('INTEGRATION_APPS.LEAF.SEARCH_PLACEHOLDER')"
+        :feature-name="integrationId"
+        :back-button-label="$t('INTEGRATION_SETTINGS.HEADER')"
+      >
+        <template v-if="leafRegistrationCount" #count>
+          <span class="text-body-main text-n-slate-11">
+            {{
+              $t('INTEGRATION_APPS.LEAF.COUNT', { n: leafRegistrationCount })
+            }}
+          </span>
+        </template>
+        <template #actions>
+          <NextButton
+            blue
+            :label="$t('INTEGRATION_APPS.LEAF.ADD')"
+            size="sm"
+            @click="openLeafAdd"
+          />
+        </template>
+      </BaseSettingsHeader>
+      <BaseSettingsHeader
+        v-else-if="isIntegrationSingle"
         :title="integration.name || ''"
         description=""
         :feature-name="integrationId"
@@ -127,7 +190,16 @@ export default {
     </template>
     <template #body>
       <div v-if="showIntegrationHooks" class="w-full">
-        <div v-if="isIntegrationMultiple">
+        <div v-if="isLeafAdmin">
+          <LeafHookSettings
+            :hooks="integration.hooks || []"
+            :search-query="leafSearchQuery"
+            @edit="openLeafEdit"
+            @delete="openLeafDelete"
+          />
+        </div>
+
+        <div v-else-if="isIntegrationMultiple">
           <MultipleIntegrationHooks
             :integration-id="integrationId"
             :show-add-button="showAddButton"
@@ -136,7 +208,7 @@ export default {
           />
         </div>
 
-        <div v-if="isIntegrationSingle">
+        <div v-else-if="isIntegrationSingle">
           <SingleIntegrationHooks
             :integration-id="integrationId"
             @add="openAddHookModal"
@@ -145,6 +217,11 @@ export default {
         </div>
       </div>
     </template>
+    <LeafRegistrationDialogs
+      v-if="isLeafAdmin"
+      ref="leafDialogs"
+      :hooks="integration.hooks || []"
+    />
     <woot-modal v-model:show="showAddHookModal" :on-close="hideAddHookModal">
       <NewHook :integration-id="integrationId" @close="hideAddHookModal" />
     </woot-modal>

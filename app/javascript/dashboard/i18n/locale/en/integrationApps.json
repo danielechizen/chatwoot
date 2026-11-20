@@ -60,6 +60,34 @@
     "DISCONNECT": {
       "BUTTON_TEXT": "Disconnect"
     },
+    "LEAF": {
+      "SYSTEM_URL": "System URL",
+      "INBOXES": "Inboxes",
+      "INBOXES_PLACEHOLDER": "Select inboxes",
+      "API_KEY": "Integration key",
+      "API_KEY_PLACEHOLDER": "Leave blank to keep the current key",
+      "ADD": "Add integration",
+      "CANCEL": "Cancel",
+      "REMOVE": "Remove",
+      "REMOVE_TITLE": "Remove this integration?",
+      "REMOVE_MESSAGE": "The selected inboxes will stop using this Leaf system ({systemUrl}).",
+      "COUNT": "{n} integration | {n} integrations",
+      "SEARCH_PLACEHOLDER": "Search integrations...",
+      "NO_RESULTS": "No integrations found matching your search",
+      "EDIT": "Edit",
+      "DELETE": "Delete",
+      "EDIT_TITLE": "Edit integration",
+      "ACTIONS": "Actions",
+      "LIST": {
+        "404": "There are no Leaf integrations configured for this account."
+      },
+      "SAVE": "Save",
+      "TEST": "Test connection",
+      "SAVE_SUCCESS": "Settings saved.",
+      "SAVE_ERROR": "Could not save the settings.",
+      "TEST_SUCCESS": "Connection successful.",
+      "TEST_ERROR": "Could not connect. Check the system URL and integration key."
+    },
     "SIDEBAR_DESCRIPTION": {
       "DIALOGFLOW": "Dialogflow is a natural language processing platform for building conversational interfaces. Integrating it with {installationName} lets bots handle queries first and transfer them to agents when needed. It helps qualify leads and reduce agent workload by answering FAQs. To add Dialogflow, create a Service Account in Google Console and share the credentials. Refer to the docs for details"
     }

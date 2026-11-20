@@ -33,6 +33,13 @@ class IntegrationsAPI extends ApiClient {
   deleteHook(hookId) {
     return axios.delete(`${this.baseUrl()}/integrations/hooks/${hookId}`);
   }
+
+  updateHook(hookId, hookData) {
+    return axios.patch(
+      `${this.baseUrl()}/integrations/hooks/${hookId}`,
+      hookData
+    );
+  }
 }
 
 export default new IntegrationsAPI();

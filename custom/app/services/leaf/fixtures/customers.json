@@ -1,0 +1,107 @@
+[
+  {
+    "name": "Fibra Alfa LTDA",
+    "cpf_cnpj": "11144477735",
+    "phone_number": "+5511987654321",
+    "registration_status": "ativo",
+    "connection": {
+      "username": "alfa.fibra",
+      "status": "online",
+      "blocked": false,
+      "technology": "ftth",
+      "last_log": "Autenticado com sucesso",
+      "onu": { "serial": "HWTC12345678", "status": "online", "rx_dbm": -18.4 }
+    },
+    "contracts": [
+      {
+        "number": "1001",
+        "label": "Contrato 1001",
+        "payment_methods": ["pix", "boleto"],
+        "open_invoices": [
+          {
+            "id": "tit-2001",
+            "description": "Mensalidade 09/2026",
+            "amount_cents": 14990,
+            "due_on": "2026-09-10"
+          },
+          {
+            "id": "tit-2002",
+            "description": "Mensalidade 10/2026",
+            "amount_cents": 14990,
+            "due_on": "2026-10-10"
+          }
+        ]
+      },
+      {
+        "number": "1002",
+        "label": "Contrato 1002",
+        "payment_methods": ["card"],
+        "open_invoices": [
+          {
+            "id": "tit-2003",
+            "description": "Instalação",
+            "amount_cents": 5000,
+            "due_on": "2026-08-01"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Provedor Exemplo LTDA",
+    "cpf_cnpj": "52998224725",
+    "phone_number": "+5511912345678",
+    "registration_status": "suspenso",
+    "connection": {
+      "username": "provedor.exemplo",
+      "status": "offline",
+      "blocked": true,
+      "technology": "ftth",
+      "last_log": "Erro de senha",
+      "onu": {
+        "serial": "ZTEG87654321",
+        "status": "offline",
+        "error": "Perda de sinal (LOS)"
+      }
+    },
+    "contracts": [
+      {
+        "number": "2001",
+        "label": "Contrato 2001",
+        "payment_methods": ["pix", "boleto"],
+        "open_invoices": [
+          {
+            "id": "tit-1002",
+            "description": "Mensalidade 07/2026",
+            "amount_cents": 9990,
+            "due_on": "2026-07-10"
+          },
+          {
+            "id": "tit-1003",
+            "description": "Mensalidade 08/2026",
+            "amount_cents": 9990,
+            "due_on": "2026-08-10"
+          },
+          {
+            "id": "tit-1001",
+            "description": "Mensalidade 10/2026",
+            "amount_cents": 9990,
+            "due_on": "2026-10-10"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Rádio Serra ME",
+    "cpf_cnpj": "11222333000181",
+    "phone_number": "+5521988887766",
+    "registration_status": "ativo",
+    "connection": {
+      "username": "radio.serra",
+      "status": "online",
+      "blocked": false,
+      "technology": "radio"
+    }
+  }
+]

@@ -6,9 +6,9 @@ describe ConfigLoader do
   describe 'execute' do
     context 'when called with default options' do
       it 'creates installation configs' do
-        expect(InstallationConfig.count).to eq(0)
+        before_count = InstallationConfig.count
         subject
-        expect(InstallationConfig.count).to be > 0
+        expect(InstallationConfig.count).to be > before_count
       end
 
       it 'creates account level feature defaults as entry on config table' do

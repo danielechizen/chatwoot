@@ -22,7 +22,7 @@ import ConversationSidebar from 'dashboard/components/widgets/conversation/Conve
 const route = useRoute();
 const router = useRouter();
 const store = useStore();
-const { uiSettings } = useUISettings();
+const { uiSettings, isContactSidebarOpen } = useUISettings();
 provide(CONTACT_CONVERSATION_NAVIGATION, useContactConversationNavigation());
 
 const isConversationLoading = ref(false);
@@ -72,10 +72,7 @@ const activeNotificationIndex = computed(() => {
 });
 
 const isContactPanelOpen = computed(() => {
-  if (currentChat.value.id) {
-    const { is_contact_sidebar_open: isContactSidebarOpen } = uiSettings.value;
-    return isContactSidebarOpen;
-  }
+  if (currentChat.value.id) return isContactSidebarOpen.value;
   return false;
 });
 
