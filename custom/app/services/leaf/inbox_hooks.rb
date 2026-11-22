@@ -2,6 +2,7 @@ class Leaf::InboxHooks
   APP_ID = 'leaf_admin'.freeze
 
   def self.create!(account:, settings:, inbox_ids:)
+    Leaf::ContactAttribute.ensure!(account)
     created = nil
     account.transaction do
       created = inbox_ids.map { |inbox_id| build!(account, inbox_id, settings) }
@@ -10,6 +11,7 @@ class Leaf::InboxHooks
   end
 
   def self.sync!(account:, hook:, settings:, inbox_ids:)
+    Leaf::ContactAttribute.ensure!(account)
     kept = nil
     account.transaction do
       group = registration_hooks(account, hook)

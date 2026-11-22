@@ -1,12 +1,15 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAlert } from 'dashboard/composables';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAbortableRequest } from 'dashboard/composables/useAbortableRequest';
 import LeafAPI from 'dashboard/api/leaf';
 import { createPendingMessage } from 'dashboard/helper/commons';
+import { copyTextToClipboard } from 'shared/helpers/clipboard';
 import Button from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
+import InlineInput from 'dashboard/components-next/inline-input/InlineInput.vue';
 import Label from 'dashboard/components-next/label/Label.vue';
 import Select from 'dashboard/components-next/select/Select.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
@@ -39,6 +42,8 @@ const PAYMENT_ACTIONS = [
 const { t } = useI18n();
 const store = useStore();
 const currentUser = useMapGetter('getCurrentUser');
+const getConversationById = useMapGetter('getConversationById');
+const getContact = useMapGetter('contacts/getContact');
 const { run: runCustomer } = useAbortableRequest();
 const {
   run: runInvoices,
@@ -58,7 +63,30 @@ const payingMethod = ref('');
 const unblocking = ref(false);
 const disconnecting = ref(false);
 const clearingMac = ref(false);
+const editingDocument = ref(false);
+const documentDraft = ref('');
+const savingDocument = ref(false);
+let pendingDocumentSave = Promise.resolve();
 
+const conversation = computed(
+  () => getConversationById.value(props.conversationId) || {}
+);
+const contact = computed(() => {
+  const id = conversation.value.meta?.sender?.id;
+  return id ? getContact.value(id) : {};
+});
+const contactId = computed(
+  () => contact.value.id || conversation.value.meta?.sender?.id || null
+);
+const documentAttributes = computed(() => {
+  if (contact.value.id) return contact.value.custom_attributes || {};
+  return conversation.value.meta?.sender?.custom_attributes || {};
+});
+const documentValue = computed(() => {
+  const value = documentAttributes.value.cpf_cnpj;
+  if (value === null || value === undefined) return '';
+  return String(value);
+});
 const customer = computed(() => lookup.value?.customer || null);
 const connection = computed(() => customer.value?.connection || null);
 const contracts = computed(() => customer.value?.contracts || []);
@@ -150,6 +178,30 @@ const onuStatusColor = computed(() => {
 const registrationStatusColor = computed(() =>
   statusColor(customer.value?.registration_status)
 );
+
+const panelMessage = computed(() => {
+  if (loadError.value) {
+    return {
+      text: loadError.value,
+      tone: 'text-n-ruby-11',
+      role: 'alert',
+    };
+  }
+  if (!lookup.value) return null;
+  if (lookup.value.reason === 'missing_identifier') {
+    return {
+      text: t('CONVERSATION_SIDEBAR.LEAF.MISSING_IDENTIFIER'),
+      tone: 'text-n-slate-11',
+    };
+  }
+  if (!lookup.value.found) {
+    return {
+      text: t('CONVERSATION_SIDEBAR.LEAF.NOT_FOUND'),
+      tone: 'text-n-slate-11',
+    };
+  }
+  return null;
+});
 
 const invoiceStatusColor = status => (status === 'atrasada' ? 'ruby' : 'blue');
 
@@ -277,7 +329,56 @@ const loadCustomer = (contractNumber, signal) =>
     signal
   );
 
+const startDocumentEdit = () => {
+  if (!contactId.value || savingDocument.value) return;
+  documentDraft.value = documentValue.value;
+  editingDocument.value = true;
+};
+
+const cancelDocumentEdit = () => {
+  editingDocument.value = false;
+};
+
+const saveDocument = () => {
+  if (!editingDocument.value || savingDocument.value) return;
+
+  const next = documentDraft.value.trim();
+  if (!contactId.value || next === documentValue.value) {
+    editingDocument.value = false;
+    return;
+  }
+
+  const id = contactId.value;
+  savingDocument.value = true;
+  pendingDocumentSave = store
+    .dispatch('contacts/update', {
+      id,
+      customAttributes: {
+        ...documentAttributes.value,
+        cpf_cnpj: next,
+      },
+    })
+    .then(() => {
+      editingDocument.value = false;
+      useAlert(t('CUSTOM_ATTRIBUTES.FORM.UPDATE.SUCCESS'));
+    })
+    .catch(error => {
+      useAlert(error?.message || t('CUSTOM_ATTRIBUTES.FORM.UPDATE.ERROR'));
+    })
+    .finally(() => {
+      savingDocument.value = false;
+    });
+};
+
+const copyDocument = async () => {
+  if (!documentValue.value) return;
+  await copyTextToClipboard(documentValue.value);
+  useAlert(t('CUSTOM_ATTRIBUTES.COPY_SUCCESSFUL'));
+};
+
 const load = async () => {
+  await pendingDocumentSave;
+  editingDocument.value = false;
   loadError.value = '';
   actionError.value = '';
   invoicesError.value = '';
@@ -460,19 +561,84 @@ watch(() => props.conversationId, load, { immediate: true });
 
 <template>
   <div class="flex flex-col gap-3 px-4 py-3 text-sm text-n-slate-12">
+    <div class="group flex min-w-0 items-center gap-2">
+      <span class="shrink-0 text-xs text-n-slate-11">
+        {{ $t('CONVERSATION_SIDEBAR.LEAF.CPF_CNPJ') }}
+      </span>
+      <template v-if="editingDocument">
+        <InlineInput
+          v-model="documentDraft"
+          focus-on-mount
+          class="min-w-0 flex-1"
+          :placeholder="$t('CONVERSATION_SIDEBAR.LEAF.CPF_CNPJ_EMPTY')"
+          @enter-press="saveDocument"
+          @escape-press="cancelDocumentEdit"
+          @blur="saveDocument"
+        />
+        <Button
+          v-tooltip="$t('CONVERSATION_SIDEBAR.LEAF.SAVE')"
+          ghost
+          xs
+          slate
+          icon="i-lucide-check"
+          class="flex-shrink-0"
+          :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.SAVE')"
+          :is-loading="savingDocument"
+          :disabled="savingDocument"
+          @click="saveDocument"
+        />
+      </template>
+      <template v-else>
+        <span
+          class="min-w-0 cursor-pointer truncate"
+          :class="documentValue ? 'text-n-slate-12' : 'text-n-slate-11'"
+          @click="startDocumentEdit"
+        >
+          {{ documentValue || $t('CONVERSATION_SIDEBAR.LEAF.CPF_CNPJ_EMPTY') }}
+        </span>
+        <Button
+          v-if="documentValue"
+          v-tooltip="$t('CUSTOM_ATTRIBUTES.ACTIONS.COPY')"
+          ghost
+          xs
+          slate
+          icon="i-lucide-clipboard"
+          class="hidden flex-shrink-0 group-hover:flex"
+          :aria-label="$t('CUSTOM_ATTRIBUTES.ACTIONS.COPY')"
+          @click="copyDocument"
+        />
+        <Button
+          v-tooltip="$t('CUSTOM_ATTRIBUTES.ACTIONS.EDIT')"
+          ghost
+          xs
+          slate
+          icon="i-lucide-pen"
+          class="hidden flex-shrink-0 group-hover:flex"
+          :aria-label="$t('CUSTOM_ATTRIBUTES.ACTIONS.EDIT')"
+          @click="startDocumentEdit"
+        />
+      </template>
+    </div>
     <Spinner v-if="!lookup && !loadError" class="mx-auto" />
-    <p v-else-if="loadError" role="alert" class="m-0 text-n-ruby-11">
-      {{ loadError }}
-    </p>
-    <p
-      v-else-if="lookup.reason === 'missing_identifier'"
-      class="m-0 text-n-slate-11"
-    >
-      {{ $t('CONVERSATION_SIDEBAR.LEAF.MISSING_IDENTIFIER') }}
-    </p>
-    <p v-else-if="!lookup.found" class="m-0 text-n-slate-11">
-      {{ $t('CONVERSATION_SIDEBAR.LEAF.NOT_FOUND') }}
-    </p>
+    <div v-else-if="panelMessage" class="flex items-center gap-2">
+      <p
+        class="m-0 min-w-0 flex-1"
+        :class="panelMessage.tone"
+        :role="panelMessage.role"
+      >
+        {{ panelMessage.text }}
+      </p>
+      <Button
+        v-tooltip="$t('CONVERSATION_SIDEBAR.LEAF.RELOAD')"
+        ghost
+        xs
+        slate
+        icon="i-lucide-refresh-cw"
+        class="flex-shrink-0"
+        :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.RELOAD')"
+        @click="load"
+      />
+    </div>
     <template v-else-if="customer">
       <Select
         v-if="customerOptions.length > 1"
@@ -482,9 +648,19 @@ watch(() => props.conversationId, load, { immediate: true });
         :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.CUSTOMER')"
         @update:model-value="onCustomerChange"
       />
-      <div class="flex items-center gap-2">
+      <div class="group flex min-w-0 items-center gap-2">
         <Icon icon="i-lucide-building-2 size-4 shrink-0 text-n-slate-11" />
         <span class="min-w-0 break-words">{{ customer.name }}</span>
+        <Button
+          v-tooltip="$t('CONVERSATION_SIDEBAR.LEAF.RELOAD')"
+          ghost
+          xs
+          slate
+          icon="i-lucide-refresh-cw"
+          class="hidden flex-shrink-0 group-hover:flex"
+          :aria-label="$t('CONVERSATION_SIDEBAR.LEAF.RELOAD')"
+          @click="load"
+        />
       </div>
       <Select
         v-if="contracts.length"
