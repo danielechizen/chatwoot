@@ -23,10 +23,13 @@ class Conversations::EventDataPresenter < SimpleDelegator
 
   # Like #push_data but with message text normalized for external integrations (webhooks).
   def webhook_data
-    push_data.merge(
+    data = push_data.merge(
       account: account.webhook_data,
       messages: webhook_push_messages
     )
+    return data unless additional_attributes.is_a?(Hash) && additional_attributes.key?('redirect_origin_display_id')
+
+    data.merge(redirect_origin_display_id: additional_attributes['redirect_origin_display_id'])
   end
 
   # The widget learns the conversation's id, inbox, read state and status, not the contact or the agents

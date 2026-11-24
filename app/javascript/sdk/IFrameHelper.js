@@ -35,6 +35,7 @@ import {
 } from 'shared/helpers/AudioNotificationHelper';
 import { isFlatWidgetStyle } from './settingsHelper';
 import { popoutChatWindow } from '../widget/helpers/popoutHelper';
+import { resolveWidgetRedirect } from './redirectToken';
 
 const updateAuthCookie = (cookieContent, baseDomain = '') =>
   setCookieWithDomain('cw_conversation', cookieContent, {
@@ -191,6 +192,8 @@ export const IFrameHelper = {
       if (!window.$chatwoot.resetTriggered) {
         dispatchWindowEvent({ eventName: CHATWOOT_READY });
       }
+
+      IFrameHelper.settleRedirect(message.config.authToken);
     },
     error: ({ errorType, data }) => {
       dispatchWindowEvent({ eventName: CHATWOOT_ERROR, data: data });
@@ -333,6 +336,58 @@ export const IFrameHelper = {
     bubbleHolder.appendChild(chatIcon);
     bubbleHolder.appendChild(closeBubble);
     onClickChatBubble();
+  },
+  settleRedirect: authToken => {
+    const openIfRequested = () => {
+      if (!window.$chatwoot || !window.$chatwoot.openOnLoad) {
+        return;
+      }
+
+      window.$chatwoot.openOnLoad = false;
+      IFrameHelper.events.toggleBubble('open');
+    };
+
+    const reloadFrame = () => {
+      const iframe = IFrameHelper.getAppFrame();
+      if (!iframe) {
+        return;
+      }
+
+      const cwCookie = Cookies.get('cw_conversation');
+      let widgetUrl = IFrameHelper.getUrl({
+        baseUrl: window.$chatwoot.baseUrl,
+        websiteToken: window.$chatwoot.websiteToken,
+      });
+      if (cwCookie) {
+        widgetUrl = `${widgetUrl}&cw_conversation=${cwCookie}`;
+      }
+      iframe.src = widgetUrl;
+    };
+
+    const token = window.$chatwoot && window.$chatwoot.redirectToken;
+    if (!token) {
+      openIfRequested();
+      return;
+    }
+
+    window.$chatwoot.redirectToken = null;
+    resolveWidgetRedirect({
+      baseUrl: window.$chatwoot.baseUrl,
+      websiteToken: window.$chatwoot.websiteToken,
+      authToken,
+      token,
+    })
+      .then(data => {
+        if (data && data.widget_auth_token) {
+          updateAuthCookie(data.widget_auth_token, window.$chatwoot.baseDomain);
+          reloadFrame();
+          return;
+        }
+        openIfRequested();
+      })
+      .catch(() => {
+        openIfRequested();
+      });
   },
   toggleCloseButton: () => {
     let isMobile = false;
