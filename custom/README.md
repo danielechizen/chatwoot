@@ -36,6 +36,7 @@ Sync-friendly sidebar integration. The dashboard and the HTTP controller speak o
 - `custom/app/services/leaf/fixtures/customers.json` plus `pix.png` and `boleto.pdf` (encoded into the payment payload at runtime)
 - `app/javascript/dashboard/api/leaf.js`
 - `app/javascript/dashboard/components-next/leaf/LeafCustomerPanel.vue`
+- `custom/app/services/leaf/contact_attribute.rb` — creates the contact attribute `cpf_cnpj` when it is missing
 
 `Leaf::Client.build` uses `Leaf::HttpAdapter` (`system_url` + `/api/v2`, header `x-auth-header`). TLS verification is off only for those Leaf requests. `Leaf::MockAdapter` stays in the repo and is not used for an enabled hook. `POST test` calls `GET /integrations/contracts?limit=1`. The controller requires an enabled `Integrations::Hook` with `app_id` `leaf_admin`.
 
@@ -48,7 +49,7 @@ Lookup uses the existing contact fields only, digits only, in this order:
 1. `custom_attributes["cpf_cnpj"]`
 2. `phone_number`
 
-There is no new contact column, no Contact model change, and no contact strong-params change. Blank values are skipped. A selected `contractId` is checked against that contact before Leaf is called for the connection or the delayed invoices.
+There is no new contact column, no Contact model change, and no contact strong-params change. Blank values are skipped. Saving a Leaf registration, and loading the customer in the sidebar, creates the contact attribute definition `cpf_cnpj` with display name CPF/CNPJ when the account does not have it. An existing definition is left as it is, including on accounts that already have the integration. The sidebar shows that value even when the lookup fails, saves it on the contact, and reloads the lookup. A selected `contractId` is checked against that contact before Leaf is called for the connection or the delayed invoices.
 
 ## Adapters
 

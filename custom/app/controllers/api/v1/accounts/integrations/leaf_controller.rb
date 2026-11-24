@@ -5,6 +5,8 @@ class Api::V1::Accounts::Integrations::LeafController < Api::V1::Accounts::Integ
     conversation = conversation_from_params
     return if performed?
 
+    Leaf::ContactAttribute.ensure!(Current.account)
+
     hook = inbox_hook(conversation)
     return if performed?
 
