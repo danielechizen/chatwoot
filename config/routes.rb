@@ -541,6 +541,7 @@ Rails.application.routes.draw do
             end
           end
 
+          resources :redirect_tokens, only: [:create]
           resources :upload, only: [:create]
         end
       end
@@ -602,6 +603,7 @@ Rails.application.routes.draw do
         end
         resources :inbox_members, only: [:index]
         resources :labels, only: [:create, :destroy]
+        resource :redirect_token, only: [:create]
         namespace :integrations do
           resource :dyte, controller: 'dyte', only: [] do
             collection do

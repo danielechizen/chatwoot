@@ -17,10 +17,16 @@ import {
 } from '../sdk/DOMHelpers';
 import { setCookieWithDomain } from '../sdk/cookieHelpers';
 import { SDK_SET_BUBBLE_VISIBILITY } from 'shared/constants/sharedFrameEvents';
+import { readRedirectFragment } from '../sdk/redirectToken';
 
 const runSDK = ({ baseUrl, websiteToken }) => {
   if (window.$chatwoot) {
     return;
+  }
+
+  const redirect = readRedirectFragment(window.location.href);
+  if (redirect.token) {
+    window.history.replaceState(window.history.state, '', redirect.href);
   }
 
   // if this is a Rails Turbo app
@@ -63,6 +69,8 @@ const runSDK = ({ baseUrl, websiteToken }) => {
     isOpen: false,
     position: chatwootSettings.position === 'left' ? 'left' : 'right',
     websiteToken,
+    redirectToken: redirect.token,
+    openOnLoad: redirect.open,
     locale,
     useBrowserLanguage: chatwootSettings.useBrowserLanguage || false,
     type: getBubbleView(chatwootSettings.type),

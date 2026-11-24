@@ -83,5 +83,22 @@ RSpec.describe Conversations::EventDataPresenter do
     it 'returns empty messages when conversation has no chat messages' do
       expect(presenter.webhook_data[:messages]).to eq([])
     end
+
+    it 'omits redirect_origin_display_id when the conversation has no redirect origin' do
+      expect(presenter.webhook_data).not_to have_key(:redirect_origin_display_id)
+    end
+
+    it 'carries a null redirect origin when the key was stored' do
+      conversation.update!(additional_attributes: { 'redirect_origin_display_id' => nil })
+
+      expect(presenter.webhook_data).to have_key(:redirect_origin_display_id)
+      expect(presenter.webhook_data[:redirect_origin_display_id]).to be_nil
+    end
+
+    it 'carries the originating conversation display id' do
+      conversation.update!(additional_attributes: { 'redirect_origin_display_id' => 42 })
+
+      expect(presenter.webhook_data[:redirect_origin_display_id]).to eq(42)
+    end
   end
 end
